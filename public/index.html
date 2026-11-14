@@ -418,15 +418,18 @@ function stopScanner() {
 $('#stopScan').onclick=stopScanner;
 
 $('#barcodeFile').onchange=async e=>{
- const file=e.target.files[0];
- if(!file)return;
- try {
-  const reader=new ZXingBrowser.BrowserMultiFormatReader();
-  const result=await reader.decodeFromImageUrl(URL.createObjectURL(file));
-  $('#search').value=result.getText();
-  navigate('search');
-  loadProducts(true);
- }catch(e){toast('Barcode tidak terbaca.')}
+  const file=e.target.files[0];
+  if(!file)return;
+  try {
+    const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']});
+    const bmp=await createImageBitmap(file);
+    const codes=await detector.detect(bmp);
+    if(!codes.length) throw new Error('no code');
+    $('#search').value=codes[0].rawValue;
+    navigate('search');
+    loadProducts(true);
+    toast('Barcode ketemu!');
+  }catch(e){toast('Barcode tidak terbaca. Coba foto lebih jelas / dekat.')}
 };
 
 $('#photoBtn').onclick=()=>$('#photoInput').click();
