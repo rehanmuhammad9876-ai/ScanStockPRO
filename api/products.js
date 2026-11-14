@@ -1,4 +1,4 @@
-
+import { timingSafeEqual } from 'node:crypto';
 import {
   db, json, isAdmin, adminToken,
   requireEnv, errorMessage
@@ -138,6 +138,5 @@ export default async function handler(req, res) {
 }
 
 function cryptoSafeEqual(a, b) {
-  const crypto = require('node:crypto');
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
