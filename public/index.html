@@ -380,25 +380,32 @@ $('#reset').onclick=()=>{
 $('#more').onclick=()=>loadProducts(false);
 
 async function startScanner() {
- if(scanner)return;
- try {
-  scanner=new ZXingBrowser.BrowserMultiFormatReader();
-  $('#scanStatus').textContent='Arahkan kamera ke barcode.';
-  await scanner.decodeFromVideoDevice(
-   undefined,'video',(result)=>{
-    if(result) {
-     $('#search').value=result.getText();
-     stopScanner();
-     navigate('search');
-     loadProducts(true);
-    }
-   }
-  );
- }catch(e) {
-  $('#scanStatus').textContent='Kamera tidak tersedia. Periksa izin kamera.';
-  toast('Tidak dapat membuka kamera.');
-  scanner=null;
- }
+  if(scanner) return;
+  try {
+    scanner = new ZXingBrowser.BrowserMultiFormatReader();
+    $('#scanStatus').textContent = 'Arahkan kamera ke barcode...';
+
+    // Cari dulu semua kamera yang ada di HP
+    const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+    let deviceId = devices[0]?.deviceId;
+
+    // Utamain kamera BELAKANG
+    const backCam = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
+    if(backCam) deviceId = backCam.deviceId;
+
+    await scanner.decodeFromVideoDevice(deviceId, 'video', (result) => {
+      if(result) {
+        $('#search').value = result.getText();
+        stopScanner();
+        navigate('search');
+        loadProducts(true);
+      }
+    });
+  } catch(e) {
+    $('#scanStatus').textContent = 'Kamera tidak dapat dibuka: ' + e.message;
+    toast('Tidak dapat membuka kamera.');
+    scanner = null;
+  }
 }
 
 function stopScanner() {
