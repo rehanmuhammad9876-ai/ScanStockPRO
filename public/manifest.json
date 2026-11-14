@@ -1,0 +1,21 @@
+
+{
+  "id": "/",
+  "name": "SCANSTOCK Pro",
+  "short_name": "SCANSTOCK",
+  "description": "Smart Warehouse Inventory Management",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#064e3b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
