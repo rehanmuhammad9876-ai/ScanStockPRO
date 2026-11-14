@@ -1,0 +1,721 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#064e3b">
+<meta name="description" content="SCANSTOCK Pro - Smart Warehouse Inventory">
+<link rel="manifest" href="/manifest.json">
+<title>SCANSTOCK Pro</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,sans-serif}
+:root{color-scheme:light}
+.dark{background:#0f172a;color:#f1f5f9;color-scheme:dark}
+.dark .surface{background:#1e293b;border-color:#334155}
+.dark input,.dark select,.dark textarea{background:#0f172a;color:white}
+.surface{background:white;border:1px solid #e2e8f0}
+.btn{padding:11px 16px;border-radius:12px;font-weight:650}
+.primary{background:#047857;color:white}
+.bottom{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:99}
+.card{border-radius:16px;padding:14px}
+input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:11px}
+[hidden]{display:none!important}
+</style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<header class="bg-emerald-900 text-white px-5 py-4 sticky top-0 z-40">
+ <div class="max-w-5xl mx-auto flex justify-between items-center">
+  <div>
+   <div class="text-xl font-black tracking-tight">SCANSTOCK <span class="text-emerald-300">Pro</span></div>
+   <div class="text-xs text-emerald-200">SMART WAREHOUSE SYSTEM</div>
+  </div>
+  <div class="flex gap-2 items-center">
+   <span id="role" class="text-xs bg-emerald-800 px-3 py-2 rounded-full">Karyawan</span>
+   <button id="theme" class="text-xl" aria-label="Ganti tema">◐</button>
+  </div>
+ </div>
+</header>
+
+<div id="offline" hidden class="bg-amber-100 text-amber-900 text-center p-2 text-sm">
+ ⚠ Mode Offline — Menampilkan data cache terakhir.
+</div>
+
+<main class="max-w-5xl mx-auto p-4 pb-28">
+
+<section id="searchPage">
+ <div class="mb-5">
+  <p class="text-sm text-slate-500">INVENTORY SEARCH</p>
+  <h1 class="text-2xl font-bold mt-1">Cari barang gudang</h1>
+  <p class="text-sm text-slate-500 mt-1">Temukan produk dalam hitungan detik.</p>
+ </div>
+
+ <div class="surface p-3 rounded-2xl shadow-sm">
+  <div class="flex gap-2">
+   <input id="search" placeholder="Cari nama, SKU, barcode..." class="flex-1">
+   <button id="clear" class="btn bg-slate-100">✕</button>
+  </div>
+  <div class="flex gap-2 mt-3">
+   <button id="scanBtn" class="btn primary flex-1">▦ Scan</button>
+   <button id="photoBtn" class="btn bg-amber-100 text-amber-900 flex-1">◎ Foto AI</button>
+  </div>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+ </div>
+
+ <div class="grid grid-cols-2 gap-2 mt-4">
+  <select id="category"><option value="">Semua kategori</option></select>
+  <select id="location"><option value="">Semua rak</option></select>
+  <select id="stock">
+   <option value="">Semua stok</option>
+   <option value="empty">Stok habis</option>
+   <option value="low">Menipis (1-4)</option>
+   <option value="safe">Aman</option>
+  </select>
+  <button id="reset" class="btn bg-slate-200">Reset filter</button>
+ </div>
+
+ <div class="flex justify-between items-center mt-6 mb-3">
+  <h2 class="font-bold">Hasil pencarian</h2>
+  <span id="count" class="text-sm text-slate-500">Memuat...</span>
+ </div>
+
+ <div id="results" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+ <button id="more" class="btn surface w-full mt-4">Muat lebih banyak</button>
+</section>
+
+<section id="scanPage" hidden>
+ <h2 class="text-2xl font-bold mb-3">Scan Barcode</h2>
+ <div class="surface p-3 rounded-2xl">
+  <video id="video" class="w-full rounded-xl bg-black" playsinline></video>
+  <p id="scanStatus" class="text-sm mt-3 text-slate-500">Kamera belum aktif.</p>
+  <button id="stopScan" class="btn bg-red-100 text-red-800 mt-3">Hentikan kamera</button>
+ </div>
+ <div class="mt-4">
+  <label>Scan dari gambar galeri</label>
+  <input id="barcodeFile" type="file" accept="image/*">
+ </div>
+</section>
+
+<section id="addPage" hidden>
+ <h2 class="text-2xl font-bold mb-4">Tambah Barang</h2>
+ <form id="productForm" class="surface card space-y-3">
+  <input name="sku" placeholder="SKU *" required>
+  <input name="barcode" placeholder="Barcode">
+  <input name="name" placeholder="Nama barang *" required>
+  <input name="category" placeholder="Kategori">
+  <input name="price" type="number" min="0" placeholder="Harga">
+  <input name="stock" type="number" min="0" placeholder="Stok">
+  <input name="location" placeholder="Lokasi rak">
+  <input name="image_url" placeholder="URL foto produk">
+  <textarea name="description" placeholder="Deskripsi"></textarea>
+  <button type="button" id="autoDesc" class="btn bg-amber-100 text-amber-900 w-full">✦ Buat deskripsi AI</button>
+  <button class="btn primary w-full">Simpan Barang</button>
+ </form>
+</section>
+
+<section id="stockPage" hidden>
+ <h2 class="text-2xl font-bold mb-4">Manajemen Stok</h2>
+ <div id="stockSummary" class="grid grid-cols-3 gap-2 mb-4"></div>
+ <div id="stockResults" class="space-y-3"></div>
+</section>
+
+<section id="adminPage" hidden>
+ <h2 class="text-2xl font-bold mb-4">Admin Center</h2>
+ <div id="adminLogin" class="surface card space-y-3">
+  <p class="font-semibold">Masuk Mode Admin</p>
+  <input id="pin" type="password" inputmode="numeric" placeholder="PIN Admin">
+  <button id="login" class="btn primary w-full">Masuk</button>
+ </div>
+
+ <div id="adminTools" hidden class="space-y-3">
+  <div class="surface card space-y-3">
+   <h3 class="font-bold">Import Excel / CSV</h3>
+   <input id="excel" type="file" accept=".xlsx,.xls,.csv">
+   <div id="preview" class="overflow-x-auto text-sm"></div>
+   <button id="import" class="btn primary w-full">Import ke Supabase</button>
+   <progress id="progress" class="w-full" max="100" value="0"></progress>
+   <p id="progressText" class="text-sm"></p>
+  </div>
+
+  <div class="surface card space-y-3">
+   <h3 class="font-bold">Export & Backup</h3>
+   <button id="export" class="btn bg-emerald-100 text-emerald-900 w-full">Export Excel</button>
+   <button id="exportCSV" class="btn bg-slate-100 w-full">Export CSV</button>
+   <button id="printLabels" class="btn bg-amber-100 w-full">Cetak Label Barcode</button>
+  </div>
+
+  <button id="logout" class="btn bg-red-100 text-red-800 w-full">Keluar Admin</button>
+ </div>
+</section>
+
+<div id="detail" hidden class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center">
+ <div class="surface rounded-2xl p-5 w-full max-w-md max-h-[90vh] overflow-auto">
+  <button id="closeDetail" class="float-right text-xl">✕</button>
+  <div id="detailContent"></div>
+ </div>
+</div>
+
+<div id="toast" class="toast hidden bg-slate-900 text-white rounded-xl px-5 py-3 text-sm shadow-lg"></div>
+</main>
+
+<nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 bottom z-40">
+ <div class="max-w-5xl mx-auto grid grid-cols-5">
+  <button data-page="search" class="nav py-3 text-xs font-semibold">⌕<br>Cari</button>
+  <button data-page="scan" class="nav py-3 text-xs font-semibold">▦<br>Scan</button>
+  <button data-page="add" class="nav py-3 text-xs font-semibold">＋<br>Tambah</button>
+  <button data-page="stock" class="nav py-3 text-xs font-semibold">▤<br>Stok</button>
+  <button data-page="admin" class="nav py-3 text-xs font-semibold">⚙<br>Admin</button>
+ </div>
+</nav>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+let products = [];
+let page = 0;
+let token = '';
+let isAdmin = false;
+let scanner = null;
+let imported = [];
+let searchTimer = null;
+let dbCache = null;
+
+const cacheName = 'scanstocks-cache-v1';
+
+function toast(message) {
+ const el = $('#toast');
+ el.textContent = message;
+ el.classList.remove('hidden');
+ setTimeout(() => el.classList.add('hidden'), 2800);
+}
+
+async function api(url, options = {}) {
+ const headers = {
+  'Content-Type':'application/json',
+  ...(token ? {Authorization:'Bearer '+token}:{}),
+  ...options.headers
+ };
+
+ const response = await fetch(url,{...options,headers});
+ const data = await response.json();
+
+ if (!response.ok) throw new Error(data.error || 'Permintaan gagal.');
+ return data;
+}
+
+function escapeHTML(s='') {
+ return String(s).replace(/[&<>"']/g,c=>({
+  '&':'&amp;','<':'&lt;','>':'&gt;',
+  '"':'&quot;',"'":'&#39;'
+ }[c]));
+}
+
+function money(v) {
+ return new Intl.NumberFormat('id-ID',{
+  style:'currency',currency:'IDR',
+  maximumFractionDigits:0
+ }).format(v||0);
+}
+
+async function loadProducts(reset=false) {
+ if(reset) page=0;
+ const q = new URLSearchParams({
+  q:$('#search').value,
+  category:$('#category').value,
+  location:$('#location').value,
+  stock:$('#stock').value,
+  page,
+  limit:30
+ });
+
+ $('#count').textContent='Memuat...';
+
+ try {
+  const data=await api('/api/products?'+q);
+  if(reset) products=data.products;
+  else products.push(...data.products);
+
+  await saveCache(products);
+  render();
+  page++;
+  $('#more').hidden=data.products.length<30;
+ } catch(e) {
+  if(!navigator.onLine) {
+   products=await readCache();
+   render();
+   toast('Menampilkan data terakhir yang tersimpan.');
+  } else toast(e.message);
+ }
+}
+
+function render() {
+ $('#count').textContent=products.length+' barang';
+ $('#results').innerHTML=products.map((p,i)=>`
+ <article class="surface card cursor-pointer" data-id="${p.id}">
+  <div class="flex gap-3">
+   <img src="${escapeHTML(p.image_url||'')}"
+    onerror="this.style.display='none'"
+    class="w-20 h-20 object-cover rounded-xl bg-slate-100">
+   <div class="flex-1 min-w-0">
+    <div class="font-bold">${escapeHTML(p.name)}</div>
+    <div class="text-xs text-slate-500 mt-1">${escapeHTML(p.sku)}</div>
+    <div class="text-sm font-semibold mt-2">${money(p.price)}</div>
+    <div class="text-xs mt-1">Rak: ${escapeHTML(p.location||'-')}</div>
+   </div>
+  </div>
+  <div class="flex justify-between mt-3 text-sm">
+   <span class="font-semibold ${p.stock<5?'text-red-600':'text-emerald-700'}">
+    Stok: ${p.stock} ${p.stock<5?'⚠':''}
+   </span>
+   <span class="text-xs text-slate-500">${escapeHTML(p.category||'Umum')}</span>
+  </div>
+ </article>`).join('');
+
+ $$('#results article').forEach(el=>{
+  el.onclick=()=>showDetail(el.dataset.id);
+ });
+}
+
+function showDetail(id) {
+ const p=products.find(x=>x.id===id);
+ if(!p)return;
+
+ $('#detailContent').innerHTML=`
+ <h2 class="text-xl font-bold mt-5">${escapeHTML(p.name)}</h2>
+ <p class="text-sm text-slate-500">${escapeHTML(p.sku)}</p>
+ <p class="mt-3">Barcode: ${escapeHTML(p.barcode||'-')}</p>
+ <p>Harga: ${money(p.price)}</p>
+ <p>Stok: ${p.stock}</p>
+ <p>Kategori: ${escapeHTML(p.category||'-')}</p>
+ <p>Lokasi: ${escapeHTML(p.location||'-')}</p>
+ <p class="mt-3">${escapeHTML(p.description||'')}</p>
+ ${isAdmin?`
+ <div class="flex gap-2 mt-5">
+ <button class="btn primary flex-1" id="editProduct">Edit</button>
+ <button class="btn bg-red-100 text-red-800 flex-1" id="deleteProduct">Hapus</button>
+ </div>`:''}
+ <button id="history" class="btn bg-slate-100 w-full mt-3">Riwayat Stok</button>
+ `;
+
+ $('#detail').hidden=false;
+
+ $('#deleteProduct')?.addEventListener('click',async()=>{
+  if(!confirm('Hapus barang ini?'))return;
+  try {
+   await api('/api/products?id='+encodeURIComponent(id),{method:'DELETE'});
+   $('#detail').hidden=true;
+   toast('Barang berhasil dihapus.');
+   loadProducts(true);
+  }catch(e){toast(e.message)}
+ });
+
+ $('#editProduct')?.addEventListener('click',()=>{
+  const form=$('#productForm');
+  Object.keys(p).forEach(k=>{
+   if(form.elements[k]) form.elements[k].value=p[k]??'';
+  });
+  form.dataset.editId=p.id;
+  $('#detail').hidden=true;
+  navigate('add');
+ });
+
+ $('#history')?.addEventListener('click',()=>showHistory(id));
+}
+
+async function showHistory(id) {
+ try {
+  const d=await api('/api/products?action=logs&id='+id);
+  alert((d.logs||[]).map(x=>
+   `${x.created_at} | ${x.change>0?'+':''}${x.change} | ${x.reason}`
+  ).join('\n')||'Belum ada riwayat.');
+ }catch(e){toast(e.message)}
+}
+
+function navigate(pageName) {
+ ['search','scan','add','stock','admin'].forEach(p=>{
+  $('#'+p+'Page').hidden=p!==pageName;
+ });
+ $$('.nav').forEach(b=>{
+  b.style.color=b.dataset.page===pageName?'#047857':'#64748b';
+ });
+ if(pageName==='stock') renderStock();
+ if(pageName==='scan') startScanner();
+ if(pageName!=='scan') stopScanner();
+}
+
+$$('.nav').forEach(b=>{
+ b.onclick=()=>navigate(b.dataset.page);
+});
+
+$('#search').addEventListener('input',()=>{
+ clearTimeout(searchTimer);
+ searchTimer=setTimeout(()=>loadProducts(true),200);
+});
+
+['category','location','stock'].forEach(id=>{
+ $('#'+id).onchange=()=>loadProducts(true);
+});
+
+$('#clear').onclick=()=>{
+ $('#search').value='';
+ loadProducts(true);
+};
+
+$('#reset').onclick=()=>{
+ $('#search').value='';
+ ['category','location','stock'].forEach(id=>$('#'+id).value='');
+ loadProducts(true);
+};
+
+$('#more').onclick=()=>loadProducts(false);
+
+async function startScanner() {
+ if(scanner)return;
+ try {
+  scanner=new ZXingBrowser.BrowserMultiFormatReader();
+  $('#scanStatus').textContent='Arahkan kamera ke barcode.';
+  await scanner.decodeFromVideoDevice(
+   undefined,'video',(result)=>{
+    if(result) {
+     $('#search').value=result.getText();
+     stopScanner();
+     navigate('search');
+     loadProducts(true);
+    }
+   }
+  );
+ }catch(e) {
+  $('#scanStatus').textContent='Kamera tidak tersedia. Periksa izin kamera.';
+  toast('Tidak dapat membuka kamera.');
+  scanner=null;
+ }
+}
+
+function stopScanner() {
+ if(scanner) {
+  scanner.reset();
+  scanner=null;
+ }
+}
+
+$('#stopScan').onclick=stopScanner;
+
+$('#barcodeFile').onchange=async e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ try {
+  const reader=new ZXingBrowser.BrowserMultiFormatReader();
+  const result=await reader.decodeFromImageUrl(URL.createObjectURL(file));
+  $('#search').value=result.getText();
+  navigate('search');
+  loadProducts(true);
+ }catch(e){toast('Barcode tidak terbaca.')}
+};
+
+$('#photoBtn').onclick=()=>$('#photoInput').click();
+
+async function imageAI(file,action,extra={}) {
+ const base64=await new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>resolve(reader.result);
+  reader.onerror=reject;
+  reader.readAsDataURL(file);
+ });
+
+ return api('/api/gemini',{
+  method:'POST',
+  body:JSON.stringify({
+   action,image:base64,mimeType:file.type,...extra
+  })
+ });
+}
+
+$('#photoInput').onchange=async e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ toast('AI sedang mengidentifikasi foto...');
+ try {
+  const d=await imageAI(file,'identify');
+  const words=d.result.keywords||[];
+  $('#search').value=[
+   d.result.name,d.result.brand,d.result.color,...words
+  ].filter(Boolean).join(' ');
+  await loadProducts(true);
+  toast('Identifikasi selesai.');
+ }catch(e){toast(e.message)}
+};
+
+$('#productForm').onsubmit=async e=>{
+ e.preventDefault();
+ if(!isAdmin)return toast('Masuk sebagai admin terlebih dahulu.');
+
+ const f=new FormData(e.target);
+ const p=Object.fromEntries(f.entries());
+ p.price=Number(p.price||0);
+ p.stock=Number(p.stock||0);
+
+ try {
+  await api('/api/products',{
+   method:'POST',
+   body:JSON.stringify({
+    action:'upsert',
+    product:p
+   })
+  });
+  e.target.reset();
+  delete e.target.dataset.editId;
+  toast('Barang tersimpan ke database.');
+  navigate('search');
+  loadProducts(true);
+ }catch(e){toast(e.message)}
+};
+
+$('#autoDesc').onclick=async()=>{
+ const name=$('#productForm').elements.name.value;
+ if(!name)return toast('Masukkan nama barang dahulu.');
+ try {
+  const d=await api('/api/gemini',{
+   method:'POST',
+   body:JSON.stringify({action:'describe',name})
+  });
+  const r=d.result;
+  $('#productForm').elements.description.value=r.description||'';
+  $('#productForm').elements.category.value=r.category||'';
+  toast('Deskripsi dibuat.');
+ }catch(e){toast(e.message)}
+};
+
+$('#login').onclick=async()=>{
+ try {
+  const d=await api('/api/products',{
+   method:'POST',
+   body:JSON.stringify({action:'login',pin:$('#pin').value})
+  });
+  token=d.token;
+  isAdmin=true;
+  $('#role').textContent='Admin';
+  $('#adminLogin').hidden=true;
+  $('#adminTools').hidden=false;
+  toast('Mode Admin aktif.');
+ }catch(e){toast(e.message)}
+};
+
+$('#logout').onclick=()=>{
+ token='';
+ isAdmin=false;
+ $('#role').textContent='Karyawan';
+ $('#adminLogin').hidden=false;
+ $('#adminTools').hidden=true;
+ toast('Anda keluar dari Admin.');
+};
+
+function renderStock() {
+ const low=products.filter(p=>p.stock>0&&p.stock<5).length;
+ const empty=products.filter(p=>p.stock===0).length;
+ const safe=products.filter(p=>p.stock>=5).length;
+
+ $('#stockSummary').innerHTML=`
+ <div class="surface card text-center"><b>${empty}</b><div class="text-xs">Habis</div></div>
+ <div class="surface card text-center"><b>${low}</b><div class="text-xs">Menipis</div></div>
+ <div class="surface card text-center"><b>${safe}</b><div class="text-xs">Aman</div></div>`;
+
+ $('#stockResults').innerHTML=products.map(p=>`
+ <div class="surface card flex items-center justify-between gap-2">
+ <div class="min-w-0"><b>${escapeHTML(p.name)}</b>
+ <p class="text-xs text-slate-500">${escapeHTML(p.sku)}</p>
+ <p class="text-sm">Stok: ${p.stock}</p></div>
+ ${isAdmin?`
+ <div class="flex gap-2">
+ <button class="btn bg-red-100" data-stock="-1" data-id="${p.id}">−</button>
+ <button class="btn bg-emerald-100" data-stock="1" data-id="${p.id}">+</button>
+ </div>`:''}
+ </div>`).join('');
+
+ $$('[data-stock]').forEach(b=>{
+  b.onclick=async()=>{
+   try{
+    await api('/api/products',{
+     method:'PATCH',
+     body:JSON.stringify({
+      action:'stock',
+      id:b.dataset.id,
+      change:Number(b.dataset.stock),
+      reason:'Penyesuaian cepat',
+      actor:'Admin'
+     })
+    });
+    toast('Stok diperbarui.');
+    loadProducts(true);
+   }catch(e){toast(e.message)}
+  };
+ });
+}
+
+$('#excel').onchange=async e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ const data=await file.arrayBuffer();
+ const wb=XLSX.read(data);
+ const rows=XLSX.utils.sheet_to_json(
+  wb.Sheets[wb.SheetNames[0]],{defval:''}
+ );
+
+ const map={
+  sku:['sku','kode','kode barang'],
+  barcode:['barcode','ean','upc'],
+  name:['nama','nama barang','name','produk'],
+  category:['kategori','category'],
+  price:['harga','price'],
+  stock:['stok','stock'],
+  location:['lokasi','rak','location'],
+  image_url:['foto','image_url','gambar']
+ };
+
+ imported=rows.map(row=>{
+  const result={};
+  for(const [field,aliases] of Object.entries(map)){
+   const key=Object.keys(row).find(k=>
+    aliases.includes(k.toLowerCase().trim())
+   );
+   if(key)result[field]=row[key];
+  }
+  result.price=Number(result.price||0);
+  result.stock=Number(result.stock||0);
+  return result;
+ }).filter(x=>x.sku&&x.name);
+
+ $('#preview').innerHTML=`
+ <p>${imported.length} baris siap diperiksa.</p>
+ <pre>${escapeHTML(JSON.stringify(imported.slice(0,5),null,2))}</pre>`;
+};
+
+$('#import').onclick=async()=>{
+ if(!imported.length)return toast('Pilih file terlebih dahulu.');
+ try{
+  for(let i=0;i<imported.length;i+=50){
+   const batch=imported.slice(i,i+50);
+   await api('/api/products',{
+    method:'POST',
+    body:JSON.stringify({action:'upsert',products:batch})
+   });
+   $('#progress').value=Math.round(
+    Math.min(i+50,imported.length)/imported.length*100
+   );
+  }
+  toast('Import berhasil.');
+  imported=[];
+  loadProducts(true);
+ }catch(e){toast(e.message)}
+};
+
+function download(data,name) {
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(data);
+ a.download=name;
+ a.click();
+ URL.revokeObjectURL(a.href);
+}
+
+$('#export').onclick=()=>{
+ const ws=XLSX.utils.json_to_sheet(products);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'Inventory');
+ XLSX.writeFile(wb,'scanstocks-inventory.xlsx');
+};
+
+$('#exportCSV').onclick=()=>{
+ const ws=XLSX.utils.json_to_sheet(products);
+ download(new Blob([XLSX.utils.sheet_to_csv(ws)],{
+  type:'text/csv;charset=utf-8'
+ }),'inventory.csv');
+};
+
+$('#printLabels').onclick=()=>{
+ const html=products.map(p=>`
+ <div style="display:inline-block;border:1px solid #ddd;padding:12px;margin:5px;width:180px">
+ <b>${escapeHTML(p.name)}</b>
+ <p>${escapeHTML(p.sku)}</p>
+ <svg id="barcode-${escapeHTML(p.id)}"></svg>
+ </div>`).join('');
+
+ const win=window.open('','_blank');
+ win.document.write('<html><body>'+html+
+ '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
+ '<script>window.onload=()=>{'+
+ products.map(p=>`JsBarcode('#barcode-${p.id}','${String(p.barcode||p.sku).replace(/['\\]/g,'')}');`).join('')+
+ 'window.print()}<\/script></body></html>');
+ win.document.close();
+};
+
+$('#closeDetail').onclick=()=>$('#detail').hidden=true;
+
+$('#theme').onclick=()=>{
+ document.body.classList.toggle('dark');
+};
+
+async function saveCache(data) {
+ try {
+  const req=indexedDB.open('scanstocks-offline',1);
+  req.onupgradeneeded=()=>{
+   req.result.createObjectStore('products');
+  };
+  req.onsuccess=()=>{
+   const tx=req.result.transaction('products','readwrite');
+   tx.objectStore('products').put(data,'latest');
+  };
+ }catch(e){}
+}
+
+async function readCache() {
+ return new Promise(resolve=>{
+  const req=indexedDB.open('scanstocks-offline',1);
+  req.onupgradeneeded=()=>{
+   req.result.createObjectStore('products');
+  };
+  req.onsuccess=()=>{
+   const r=req.result.transaction('products')
+    .objectStore('products').get('latest');
+   r.onsuccess=()=>resolve(r.result||[]);
+   r.onerror=()=>resolve([]);
+  };
+  req.onerror=()=>resolve([]);
+ });
+}
+
+window.addEventListener('online',()=>{
+ $('#offline').hidden=true;
+ loadProducts(true);
+});
+window.addEventListener('offline',()=>{
+ $('#offline').hidden=false;
+});
+
+if('serviceWorker' in navigator) {
+ navigator.serviceWorker.register('/sw.js')
+  .catch(()=>toast('Cache offline tidak dapat diaktifkan.'));
+}
+
+async function initialize() {
+ if(!navigator.onLine) {
+  $('#offline').hidden=false;
+  products=await readCache();
+  render();
+ } else {
+  await loadProducts(true);
+ }
+}
+
+initialize();
+</script>
+</body>
+</html>
