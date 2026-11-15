@@ -844,136 +844,144 @@ document.getElementById('fotoGede').addEventListener('touchend', e=>{ const dx=e
 
 // 2. UPLOAD: foto -> api/upload-foto.js baru -> balik URL -> tempel ke image_url lama pake koma
 
-import { randomUUID } from 'node:crypto';
 
-import {
-  json,
-  isAdmin,
-  requireEnv,
-  errorMessage
-} from '../lib/server.js';
+document.getElementById('inputUploadFoto').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  if (!files.length || !_idAktif) return;
 
-import { createClient } from '@supabase/supabase-js';
+  const st = document.getElementById('statusUpload');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return json(res, 405, {
-      success: false,
-      error: 'Metode harus POST.'
-    });
+  if (!isAdmin || !token) {
+    st.textContent = '❌ Silakan login admin terlebih dahulu.';
+    e.target.value = '';
+    return;
   }
 
-  if (!requireEnv()) {
-    return json(res, 500, {
-      success: false,
-      error: 'Server belum dikonfigurasi.'
-    });
+  const p = products.find(
+    x => String(x.id) === String(_idAktif)
+  );
+
+  if (!p) {
+    st.textContent = '❌ Produk tidak ditemukan.';
+    e.target.value = '';
+    return;
   }
 
-  if (!isAdmin(req)) {
-    return json(res, 403, {
-      success: false,
-      error: 'Akses admin diperlukan.'
-    });
-  }
-
-  try {
-    const { image, sku, id } = req.body || {};
-
-    if (!image || typeof image !== 'string') {
-      return json(res, 400, {
-        success: false,
-        error: 'Foto belum dipilih.'
-      });
+  // Kompres foto agar tidak terlalu besar saat dikirim
+  async function kompresFoto(file) {
+    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+      throw new Error('Gunakan foto JPG, PNG, atau WebP.');
     }
 
-    if (!id && !sku) {
-      return json(res, 400, {
-        success: false,
-        error: 'ID atau SKU produk wajib diisi.'
-      });
-    }
+    const img = await new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const gambar = new Image();
 
-    const match = image.match(
-      /^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/
+      gambar.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(gambar);
+      };
+
+      gambar.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Foto gagal dibaca.'));
+      };
+
+      gambar.src = url;
+    });
+
+    const max = 1200;
+    const skala = Math.min(
+      1,
+      max / Math.max(img.width, img.height)
     );
 
-    if (!match) {
-      return json(res, 400, {
-        success: false,
-        error: 'Format foto tidak didukung.'
-      });
-    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * skala);
+    canvas.height = Math.round(img.height * skala);
 
-    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    const mime = ext === 'jpg'
-      ? 'image/jpeg'
-      : `image/${ext}`;
-
-    const buffer = Buffer.from(match[2], 'base64');
-
-    if (!buffer.length || buffer.length > 5 * 1024 * 1024) {
-      return json(res, 400, {
-        success: false,
-        error: 'Ukuran foto maksimal 5 MB.'
-      });
-    }
-
-    const safeSku = String(sku || 'product')
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .slice(0, 60);
-
-    const filename =
-      `${safeSku}-${randomUUID()}.${ext}`;
-
-    const { error: uploadError } = await supabase
-      .storage
-      .from('product-photos')
-      .upload(filename, buffer, {
-        contentType: mime,
-        upsert: false,
-        cacheControl: '3600'
-      });
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    const { data: publicData } = supabase
-      .storage
-      .from('product-photos')
-      .getPublicUrl(filename);
-
-    const imageUrl = publicData?.publicUrl;
-
-    if (!imageUrl) {
-      throw new Error('URL foto gagal dibuat.');
-    }
-
-    // URL dikembalikan ke JavaScript.
-    // Penyimpanan daftar foto dilakukan melalui API products.
-    return json(res, 200, {
-      success: true,
-      message: 'Foto berhasil diunggah.',
-      url: imageUrl,
-      image_url: imageUrl
-    });
-
-  } catch (error) {
-    console.error('UPLOAD FOTO ERROR:', error);
-
-    return json(res, 500, {
-      success: false,
-      error: errorMessage(error)
-    });
+    return canvas.toDataURL('image/jpeg', 0.75);
   }
-}
+
+  st.textContent = '⏳ Menyiapkan foto...';
+
+  try {
+    const urls = [];
+
+    for (let i = 0; i < files.length; i++) {
+      st.textContent =
+        '⏳ Mengompres foto ' + (i + 1) + '/' + files.length;
+
+      const b64 = await kompresFoto(files[i]);
+
+      st.textContent =
+        '⏳ Mengunggah foto ' + (i + 1) + '/' + files.length;
+
+      const result = await api('/api/upload-foto', {
+        method: 'POST',
+        body: JSON.stringify({
+          image: b64,
+          id: _idAktif,
+          sku: p.sku
+        })
+      });
+
+      const url = result.url || result.image_url;
+
+      if (!url) {
+        throw new Error('Server tidak mengembalikan URL foto.');
+      }
+
+      urls.push(url);
+    }
+
+    // GABUNGKAN FOTO LAMA DAN FOTO BARU
+    const fotoLama = pecahFoto(p);
+
+    const semuaFoto = [
+      ...fotoLama,
+      ...urls
+    ];
+
+    // Hilangkan URL duplikat
+    const unik = [...new Set(semuaFoto)];
+
+    const baru = unik.join(',');
+
+    // Simpan seluruh foto ke database
+    await api('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: _idAktif,
+        image_url: baru
+      })
+    });
+
+    // Perbarui data lokal
+    p.image_url = baru;
+
+    _listFotoAktif = pecahFoto(p);
+
+    st.textContent =
+      '✅ ' + urls.length +
+      ' foto berhasil ditambahkan. Total foto: ' +
+      unik.length;
+
+    window.showDetail(_idAktif);
+    render();
+
+  } catch (err) {
+    console.error('UPLOAD FOTO:', err);
+
+    st.textContent = '❌ ' + err.message;
+  }
+
+  e.target.value = '';
+});
+
 
 
 // 3. CARI PAKE FOTO: foto -> api/gemini.js lama -> kata kunci -> cari di products lokal
