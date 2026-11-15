@@ -706,6 +706,7 @@ $('#excel').onchange=async e=>{
 };
 
       
+
 $('#import').onclick = async () => {
   if (!imported.length) {
     return toast('Pilih file terlebih dahulu.');
@@ -714,9 +715,10 @@ $('#import').onclick = async () => {
   const total = imported.length;
   const batchSize = 20;
   const maxRetry = 5;
+  const gagalItems = [];
 
   let berhasil = 0;
-  let gagal = false;
+  let diperiksa = 0;
 
   $('#progress').value = 0;
   $('#progressText').textContent =
@@ -724,89 +726,125 @@ $('#import').onclick = async () => {
 
   $('#import').disabled = true;
 
+  const tunggu = ms =>
+    new Promise(resolve => setTimeout(resolve, ms));
+
+  async function kirim(data) {
+    return await api('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'upsert',
+        products: data
+      })
+    });
+  }
+
   try {
     for (let i = 0; i < total; i += batchSize) {
       const batch = imported.slice(i, i + batchSize);
       let sukses = false;
-      let errorTerakhir;
+      let errorTerakhir = '';
 
+      // Coba kirim satu batch
       for (let retry = 1; retry <= maxRetry; retry++) {
         try {
-          const response = await api('/api/products', {
-            method: 'POST',
-            body: JSON.stringify({
-              action: 'upsert',
-              products: batch
-            })
-          });
-
-          if (response && response.success === false) {
-            throw new Error(
-              response.message || 'Import gagal'
-            );
-          }
-
+          await kirim(batch);
           sukses = true;
           break;
-
         } catch (err) {
-          errorTerakhir = err;
+          errorTerakhir = err.message || 'Kesalahan server';
 
           $('#progressText').textContent =
             `Batch ${Math.floor(i / batchSize) + 1}: ` +
             `percobaan ${retry}/${maxRetry}`;
 
           if (retry < maxRetry) {
-            await new Promise(resolve =>
-              setTimeout(resolve, 1500 * retry)
-            );
+            await tunggu(1500 * retry);
           }
         }
       }
 
-      if (!sukses) {
-        throw new Error(
-          `Import berhenti pada barang ${i + 1} sampai ${i + batch.length}. ` +
-          (errorTerakhir?.message || 'Kesalahan server')
-        );
+      if (sukses) {
+        berhasil += batch.length;
+      } else {
+        // Jika batch gagal, coba setiap barang sendiri
+        for (let j = 0; j < batch.length; j++) {
+          const produk = batch[j];
+          let itemSukses = false;
+
+          for (let retry = 1; retry <= 3; retry++) {
+            try {
+              await kirim([produk]);
+              itemSukses = true;
+              break;
+            } catch (err) {
+              errorTerakhir =
+                err.message || errorTerakhir;
+
+              if (retry < 3) {
+                await tunggu(1500 * retry);
+              }
+            }
+          }
+
+          if (itemSukses) {
+            berhasil++;
+          } else {
+            gagalItems.push({
+              produk,
+              nomor: i + j + 1,
+              error: errorTerakhir
+            });
+          }
+        }
       }
 
-      berhasil += batch.length;
+      diperiksa += batch.length;
 
       const persen = Math.round(
-        berhasil / total * 100
+        diperiksa / total * 100
       );
 
       $('#progress').value = persen;
 
       $('#progressText').textContent =
-        `Berhasil ${berhasil} dari ${total} barang (${persen}%)`;
+        `Diperiksa ${diperiksa}/${total} | ` +
+        `Berhasil ${berhasil} | ` +
+        `Gagal ${gagalItems.length}`;
 
-      await new Promise(resolve =>
-        setTimeout(resolve, 150)
-      );
+      await tunggu(150);
     }
 
-    imported = [];
+    // Sisakan hanya barang yang benar-benar gagal
+    imported = gagalItems.map(item => item.produk);
 
-    toast(`Import selesai! ${berhasil} barang berhasil.`);
+    if (gagalItems.length === 0) {
+      toast(`Import selesai! ${berhasil} barang berhasil.`);
+      $('#progressText').textContent =
+        `Import selesai: ${berhasil}/${total} barang berhasil.`;
+    } else {
+      toast(
+        `Import selesai dengan ${gagalItems.length} barang gagal.`
+      );
+
+      $('#progressText').textContent =
+        `Selesai. Berhasil ${berhasil}, gagal ${gagalItems.length}. ` +
+        `Tekan Import lagi untuk mencoba barang yang gagal.`;
+
+      console.error('Detail barang gagal:', gagalItems);
+    }
 
     loadProducts(true);
 
   } catch (e) {
-    gagal = true;
-
     console.error('Import error:', e);
-
     toast(e.message);
-
-    $('#progressText').textContent =
-      `Import berhenti. ${berhasil}/${total} barang berhasil.`;
 
   } finally {
     $('#import').disabled = false;
   }
 };
+
 
 
 function download(data,name) {
