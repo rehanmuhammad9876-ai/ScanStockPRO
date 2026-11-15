@@ -769,5 +769,106 @@ async function initialize() {
 
 initialize();
 </script>
+ <!-- === TAMBAHAN CARA A: UPLOAD + SLIDER + CARI PAKE FOTO - JANGAN HAPUS YANG LAMA === -->
+<input type="file" id="inputUploadFoto" accept="image/*" capture="environment" multiple style="display:none">
+<input type="file" id="inputCariFoto" accept="image/*" capture="environment" style="display:none">
+<div id="modalFoto" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <button onclick="tutupModalFoto()" style="position:absolute;top:16px;right:16px;background:#fff;border:0;padding:10px 14px;border-radius:99px;font-weight:800">✕</button>
+  <img id="fotoGede" src="" style="width:92vw;max-width:480px;height:62vh;object-fit:cover;border-radius:16px">
+  <div style="display:flex;gap:16px;align-items:center;margin-top:14px;color:#fff">
+    <button onclick="geserFoto(-1)" style="padding:12px 18px;border-radius:99px;border:0;font-size:20px">←</button>
+    <span id="infoFoto">1 / 1</span>
+    <button onclick="geserFoto(1)" style="padding:12px 18px;border-radius:99px;border:0;font-size:20px">→</button>
+  </div>
+  <div id="namaFotoGede" style="color:#fff;margin-top:10px;font-weight:700;text-align:center;padding:0 20px"></div>
+  <div style="color:#aaa;font-size:12px;margin-top:4px">Geser / swipe buat liat foto lain di SKU yang sama</div>
+</div>
+<div id="boxCariFoto" style="display:none;padding:10px"></div>
+<script>
+// === CARA A: SCAN -> DETAIL -> TAMBAH FOTO ===
+let _idAktif = null, _listFotoAktif = [], _idxFoto = 0, _namaAktif = "";
+function pecahFoto(p){ if(!p) return []; if(Array.isArray(p.image_url)) return p.image_url; return String(p.image_url||"").split(",").map(s=>s.trim()).filter(Boolean); }
+function fotoUtama(p){ const f = pecahFoto(p); return f[0] || ""; }
+
+// 1. BUNGKUS showDetail lama, gak dihapus. Abis detail kebuka, kita suntik tombolnya.
+const _showDetailLama = window.showDetail;
+window.showDetail = function(id){
+  if(_showDetailLama) _showDetailLama(id);
+  setTimeout(()=>{
+    const p = (window.products||[]).find(x=>String(x.id)===String(id)); if(!p) return;
+    _idAktif = p.id; _namaAktif = p.name||p.nama||"";
+    let box = document.getElementById('boxTambahFoto');
+    if(!box){
+      box = document.createElement('div'); box.id = 'boxTambahFoto';
+      const detail = document.getElementById('detail'); if(detail) detail.appendChild(box);
+    }
+    const fotos = pecahFoto(p);
+    box.innerHTML = `
+      <div style="margin-top:12px;border:1px solid #eee;border-radius:14px;padding:12px">
+        <b>📸 Foto Barang (${fotos.length})</b><br>
+        <span style="font-size:12px;color:#666">Scan -> barang ketemu -> foto langsung nempel ke SKU ini</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          ${fotos.map((f,i)=>`<img src="${f}" onclick="bukaModalFoto(${i})" style="width:80px;height:80px;object-fit:cover;border-radius:10px;cursor:pointer">`).join('') || '<span style="font-size:12px;color:#999">Belum ada foto</span>'}
+        </div>
+        <button onclick="document.getElementById('inputUploadFoto').click()" style="width:100%;padding:12px;margin-top:10px;border-radius:12px;background:#111;color:#fff;font-weight:800">📷 + TAMBAH FOTO KE SKU INI</button>
+        <button onclick="document.getElementById('inputCariFoto').click()" style="width:100%;padding:12px;margin-top:8px;border-radius:12px;background:#fff;border:1px solid #111;font-weight:800">🔍 CARI BARANG PAKE FOTO</button>
+        <div id="statusUpload" style="font-size:12px;margin-top:6px"></div>
+      </div>`;
+    _listFotoAktif = fotos;
+  }, 100);
+};
+function bukaModalFoto(idx){
+  _idxFoto = idx||0; document.getElementById('modalFoto').style.display="flex"; updateFotoGede();
+}
+function tutupModalFoto(){ document.getElementById('modalFoto').style.display="none"; }
+function geserFoto(d){ if(!_listFotoAktif.length) return; _idxFoto = (_idxFoto+d+_listFotoAktif.length)%_listFotoAktif.length; updateFotoGede(); }
+function updateFotoGede(){
+  document.getElementById('fotoGede').src = _listFotoAktif[_idxFoto]||"";
+  document.getElementById('infoFoto').textContent = (_idxFoto+1)+" / "+_listFotoAktif.length;
+  document.getElementById('namaFotoGede').textContent = _namaAktif;
+}
+let _sx=0;
+document.getElementById('fotoGede').addEventListener('touchstart', e=>_sx=e.touches[0].clientX);
+document.getElementById('fotoGede').addEventListener('touchend', e=>{ const dx=e.changedTouches[0].clientX-_sx; if(dx<-40) geserFoto(1); if(dx>40) geserFoto(-1); });
+
+// 2. UPLOAD: foto -> api/upload-foto.js baru -> balik URL -> tempel ke image_url lama pake koma
+document.getElementById('inputUploadFoto').addEventListener('change', async (e)=>{
+  const files = [...e.target.files]; if(!files.length || !_idAktif) return;
+  const st = document.getElementById('statusUpload'); st.textContent = "⏳ Upload "+files.length+" foto...";
+  try{
+    const urls = [];
+    for(const f of files){
+      const b64 = await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); });
+      const res = await fetch('/api/upload-foto', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:b64, sku:_idAktif})});
+      const j = await res.json(); if(j.url) urls.push(j.url); else throw new Error(j.error||'gagal upload');
+    }
+    const p = window.products.find(x=>String(x.id)===String(_idAktif));
+    const lama = pecahFoto(p); const baru = [...lama, ...urls].join(", ");
+    // Pakai endpoint update yang udah ada di api/products.js lu (cara yang sama kayak edit produk)
+    const res2 = await fetch('/api/products', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id:_idAktif, image_url:baru})});
+    if(!res2.ok) throw new Error('Gagal simpan ke products, cek api/products.js - harus terima {id, image_url}');
+    p.image_url = baru; st.textContent = "✅ "+urls.length+" foto nempel ke "+_namaAktif;
+    window.showDetail(_idAktif); if(window.render) window.render();
+  }catch(err){ st.textContent = "❌ "+err.message; }
+  e.target.value="";
+});
+
+// 3. CARI PAKE FOTO: foto -> api/gemini.js lama -> kata kunci -> cari di products lokal
+document.getElementById('inputCariFoto').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const box = document.getElementById('boxCariFoto'); box.style.display="block"; box.innerHTML="⏳ AI lagi liat foto lu...";
+  document.getElementById('detail').hidden = false; document.getElementById('detail').appendChild(box);
+  const b64 = await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file); });
+  const res = await fetch('/api/gemini', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:b64, prompt:"Sebutkan nama barang ini, warna, dan jenisnya dalam 5 kata. Contoh: SEAT CUSHION CU-17 coklat"})});
+  const j = await res.json(); const kunci = (j.text||j.result||j.description||"").toString();
+  const hasil = (window.products||[]).filter(p=> (p.name+" "+p.sku+" "+p.barcode).toLowerCase().includes(kunci.split(" ")[0].toLowerCase()) || (p.name||"").toLowerCase().includes(kunci.toLowerCase().slice(0,6)));
+  if(!hasil.length){ box.innerHTML="Gak ketemu. AI baca: "+kunci; return; }
+  box.innerHTML = "<b>Hasil AI baca: "+kunci+"</b>" + hasil.slice(0,5).map(p=>{
+    const f = fotoUtama(p);
+    return `<div onclick="showDetail('${p.id}')" style="display:flex;gap:12px;padding:10px;border:1px solid #eee;border-radius:12px;margin-top:8px;cursor:pointer"><img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:10px"><div><b>${p.name}</b><br>SKU: ${p.sku} | Stok: ${p.stock}<br><span style="font-size:12px;color:#666">${pecahFoto(p).length} foto • Klik buat detail + slide</span></div></div>`;
+  }).join('');
+  e.target.value="";
+});
+</script>
 </body>
 </html>
