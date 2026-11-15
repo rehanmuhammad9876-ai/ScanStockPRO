@@ -844,7 +844,13 @@ box.innerHTML = `
     padding:14px;
     color:#1e293b;
   ">
-    <b>📸 Foto Barang (${fotos.length})</b><br>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+  <b>📸 Foto Barang (${fotos.length})</b>
+  <button onclick="tutupBoxFoto()"
+    style="border:0;background:#f1f5f9;border-radius:50%;width:36px;height:36px;font-size:22px;color:#111">
+    ×
+  </button>
+</div>
     <span style="font-size:12px;color:#666">
       Scan -> barang ketemu -> foto langsung nempel ke SKU ini
     </span>
@@ -875,6 +881,10 @@ _listFotoAktif = fotos;
 
   }, 100);
 };
+ function tutupBoxFoto(){
+  const box = document.getElementById('boxTambahFoto');
+  if(box) box.style.display = 'none';
+ }
 function bukaModalFoto(idx){
   _idxFoto = idx||0; document.getElementById('modalFoto').style.display="flex"; updateFotoGede();
 }
