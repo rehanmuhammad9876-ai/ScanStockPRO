@@ -96,6 +96,13 @@ export default async function handler(req, res) {
 
       return json(res, 200, { products: data });
     }
+if ((req.method === 'PATCH' || req.method === 'POST') && (action === 'image' || action === 'update-image' || action === 'update_image')) {
+  const { id, image_url } = req.body || {};
+  if (!id || !image_url) return json(res, 400, { error: 'id dan image_url wajib diisi.' });
+  const { data, error } = await db.from('products').update({ image_url: String(image_url) }).eq('id', id).select().single();
+  if (error) throw error;
+  return json(res, 200, { product: data });
+}
 
     if (req.method === 'PATCH' && action === 'stock') {
       const { id, change, reason, actor } = req.body;
