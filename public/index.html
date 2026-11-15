@@ -948,20 +948,194 @@ document.getElementById('inputUploadFoto').addEventListener('change', async (e) 
 
 
 // 3. CARI PAKE FOTO: foto -> api/gemini.js lama -> kata kunci -> cari di products lokal
-document.getElementById('inputCariFoto').addEventListener('change', async (e)=>{
-  const file = e.target.files[0]; if(!file) return;
-  const box = document.getElementById('boxCariFoto'); box.style.display="block"; box.innerHTML="⏳ AI lagi liat foto lu...";
-  document.getElementById('detail').hidden = false; document.getElementById('detailContent').appendChild(box)
-  const b64 = await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file); });
-  const res = await fetch('/api/gemini', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:b64, prompt:"Sebutkan nama barang ini, warna, dan jenisnya dalam 5 kata. Contoh: SEAT CUSHION CU-17 coklat"})});
-  const j = await res.json(); const kunci = (j.text||j.result||j.description||"").toString();
-  const hasil = (window.products||[]).filter(p=> (p.name+" "+p.sku+" "+p.barcode).toLowerCase().includes(kunci.split(" ")[0].toLowerCase()) || (p.name||"").toLowerCase().includes(kunci.toLowerCase().slice(0,6)));
-  if(!hasil.length){ box.innerHTML="Gak ketemu. AI baca: "+kunci; return; }
-  box.innerHTML = "<b>Hasil AI baca: "+kunci+"</b>" + hasil.slice(0,5).map(p=>{
-    const f = fotoUtama(p);
-    return `<div onclick="showDetail('${p.id}')" style="display:flex;gap:12px;padding:10px;border:1px solid #eee;border-radius:12px;margin-top:8px;cursor:pointer"><img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:10px"><div><b>${p.name}</b><br>SKU: ${p.sku} | Stok: ${p.stock}<br><span style="font-size:12px;color:#666">${pecahFoto(p).length} foto • Klik buat detail + slide</span></div></div>`;
-  }).join('');
-  e.target.value="";
+
+document.getElementById('inputCariFoto').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const box = document.getElementById('boxCariFoto');
+  box.style.display = 'block';
+  box.innerHTML = '⏳ AI sedang mengenali barang...';
+
+  document.getElementById('detail').hidden = false;
+  document.getElementById('detailContent').appendChild(box);
+
+  const escapeHTML = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[c]);
+
+  try {
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+      throw new Error('Gunakan foto JPG, PNG, atau WebP.');
+    }
+
+    const image = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
+      reader.readAsDataURL(file);
+    });
+
+    const mimeType = file.type;
+
+    // Ambil data produk yang sudah dimuat
+    const daftarProduk = typeof products !== 'undefined'
+      ? products
+      : (window.products || []);
+
+    if (!daftarProduk.length) {
+      throw new Error('Data barang belum dimuat. Coba refresh halaman.');
+    }
+
+    // 1. AI mengenali foto
+    const identifikasi = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'identify',
+        image,
+        mimeType
+      })
+    });
+
+    const hasilIdentifikasi = await identifikasi.json();
+
+    if (!identifikasi.ok) {
+      throw new Error(hasilIdentifikasi.error || 'AI gagal mengenali foto.');
+    }
+
+    const info = hasilIdentifikasi.result || {};
+
+    const kataKunci = [
+      info.name,
+      info.brand,
+      info.color,
+      info.category,
+      info.description,
+      ...(Array.isArray(info.keywords) ? info.keywords : [])
+    ].filter(Boolean).join(' ');
+
+    box.innerHTML =
+      '🔎 AI mengenali: <b>' + escapeHTML(kataKunci || 'Barang') +
+      '</b><br>⏳ Mencocokkan dengan database barang...';
+
+    // 2. Cari kandidat produk berdasarkan hasil identifikasi
+    const kata = kataKunci.toLowerCase()
+      .split(/[\s,.-]+/)
+      .filter(k => k.length >= 3);
+
+    const skorProduk = daftarProduk.map(p => {
+      const teks = [
+        p.name, p.sku, p.barcode, p.category,
+        p.description,
+        ...(Array.isArray(p.synonyms) ? p.synonyms : [p.synonyms || ''])
+      ].join(' ').toLowerCase();
+
+      let skor = 0;
+      kata.forEach(k => {
+        if (teks.includes(k)) skor += 2;
+      });
+
+      if (info.category &&
+          String(p.category || '').toLowerCase().includes(info.category.toLowerCase())) {
+        skor += 3;
+      }
+
+      return { p, skor };
+    }).sort((a, b) => b.skor - a.skor);
+
+    // Ambil maksimal 30 kandidat untuk dibandingkan AI
+    let kandidat = skorProduk
+      .filter(x => x.skor > 0)
+      .slice(0, 30)
+      .map(x => x.p);
+
+    // Jika pencarian kata kunci tidak menemukan kandidat,
+    // AI tetap diberi kesempatan membandingkan database.
+    if (!kandidat.length) {
+      kandidat = daftarProduk.slice(0, 30);
+    }
+
+    // 3. AI membandingkan foto dengan kandidat database
+    const verifikasi = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'verify',
+        image,
+        mimeType,
+        candidates: kandidat.map(p => ({
+          sku: String(p.sku || ''),
+          name: String(p.name || ''),
+          category: String(p.category || ''),
+          description: String(p.description || '')
+        }))
+      })
+    });
+
+    const hasilVerifikasi = await verifikasi.json();
+
+    if (!verifikasi.ok) {
+      throw new Error(hasilVerifikasi.error || 'AI gagal membandingkan barang.');
+    }
+
+    const matches = hasilVerifikasi.result?.matches || [];
+
+    // 4. Urutkan produk berdasarkan hasil perbandingan AI
+    const hasil = matches
+      .filter(m => Number(m.similarity) > 0)
+      .sort((a, b) => Number(b.similarity) - Number(a.similarity))
+      .map(m => {
+        const p = kandidat.find(x =>
+          String(x.sku) === String(m.sku)
+        );
+        return p ? { p, similarity: Number(m.similarity), reason: m.reason } : null;
+      })
+      .filter(Boolean);
+
+    if (!hasil.length) {
+      box.innerHTML =
+        '<b>Barang belum ditemukan.</b><br>' +
+        'AI membaca: ' + escapeHTML(kataKunci) +
+        '<br><small>Coba foto dari sudut berbeda atau dengan pencahayaan lebih jelas.</small>';
+      return;
+    }
+
+    // 5. Tampilkan hasil
+    box.innerHTML =
+      '<b>🔍 Hasil pencarian AI</b><br>' +
+      '<small>AI mengenali: ' + escapeHTML(kataKunci) + '</small>' +
+      hasil.slice(0, 5).map(item => {
+        const p = item.p;
+        const foto = fotoUtama(p);
+        const gambar = foto
+          ? '<img src="' + escapeHTML(foto) + '" style="width:70px;height:70px;object-fit:cover;border-radius:10px">'
+          : '';
+
+        return `
+          <div onclick="showDetail('${escapeHTML(p.id)}')"
+            style="display:flex;gap:12px;padding:10px;border:1px solid #ddd;border-radius:12px;margin-top:8px;cursor:pointer">
+            ${gambar}
+            <div>
+              <b>${escapeHTML(p.name)}</b><br>
+              SKU: ${escapeHTML(p.sku)}<br>
+              Stok: ${escapeHTML(p.stock)}<br>
+              <small>Kecocokan AI: ${escapeHTML(item.similarity)}%</small>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  } catch (error) {
+    console.error('CARI FOTO:', error);
+    box.innerHTML = '❌ ' + escapeHTML(error.message);
+  }
+
+  e.target.value = '';
 });
 </script>
 </body>
