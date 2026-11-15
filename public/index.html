@@ -671,23 +671,92 @@ $('#excel').onchange=async e=>{
  <pre>${escapeHTML(JSON.stringify(imported.slice(0,5),null,2))}</pre>`;
 };
 
-$('#import').onclick=async()=>{
- if(!imported.length)return toast('Pilih file terlebih dahulu.');
- try{
-  for(let i=0;i<imported.length;i+=50){
-   const batch=imported.slice(i,i+50);
-   await api('/api/products',{
-    method:'POST',
-    body:JSON.stringify({action:'upsert',products:batch})
-   });
-   $('#progress').value=Math.round(
-    Math.min(i+50,imported.length)/imported.length*100
-   );
+$('#import').onclick = async () => {
+  if (!imported.length) {
+    return toast('Pilih file terlebih dahulu.');
   }
-  toast('Import berhasil.');
-  imported=[];
-  loadProducts(true);
- }catch(e){toast(e.message)}
+
+  const total = imported.length;
+  const batchSize = 20;
+  const maxRetry = 3;
+
+  let berhasil = 0;
+  let gagal = false;
+
+  $('#progress').value = 0;
+  $('#progressText').textContent =
+    `Memulai import 0/${total} barang...`;
+
+  $('#import').disabled = true;
+
+  try {
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = imported.slice(i, i + batchSize);
+      let sukses = false;
+      let errorTerakhir;
+
+      for (let retry = 1; retry <= maxRetry; retry++) {
+        try {
+          await api('/api/products', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'upsert',
+              products: batch
+            })
+          });
+
+          sukses = true;
+          break;
+
+        } catch (err) {
+          errorTerakhir = err;
+
+          $('#progressText').textContent =
+            `Batch ${Math.floor(i / batchSize) + 1}: percobaan ${retry}/${maxRetry}`;
+
+          if (retry < maxRetry) {
+            await new Promise(resolve =>
+              setTimeout(resolve, 1000 * retry)
+            );
+          }
+        }
+      }
+
+      if (!sukses) {
+        throw new Error(
+          `Gagal pada barang ${i + 1} sampai ${i + batch.length}. ` +
+          (errorTerakhir?.message || 'Kesalahan server')
+        );
+      }
+
+      berhasil += batch.length;
+
+      const persen = Math.round(
+        berhasil / total * 100
+      );
+
+      $('#progress').value = persen;
+
+      $('#progressText').textContent =
+        `Berhasil ${berhasil} dari ${total} barang (${persen}%)`;
+    }
+
+    imported = [];
+
+    toast(`Import selesai! ${berhasil} barang berhasil.`);
+    loadProducts(true);
+
+  } catch (e) {
+    gagal = true;
+
+    toast(e.message);
+
+    $('#progressText').textContent =
+      `Import berhenti. ${berhasil}/${total} barang berhasil.`;
+
+  } finally {
+    $('#import').disabled = false;
+  }
 };
 
 function download(data,name) {
