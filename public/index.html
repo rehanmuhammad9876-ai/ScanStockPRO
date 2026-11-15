@@ -498,7 +498,7 @@ async function imageAI(file,action,extra={}) {
  return api('/api/gemini',{
   method:'POST',
   body:JSON.stringify({
-   action,image:base64,mimeType:'image/jpeg,...extra
+   action,image:base64,mimeType:'image/jpeg',...extra
   })
  });
 }
