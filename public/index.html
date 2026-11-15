@@ -300,14 +300,21 @@ async function loadProducts(reset=false) {
  }
 }
 
+
 function render() {
  $('#count').textContent=products.length+' barang';
+
  $('#results').innerHTML=products.map((p,i)=>`
  <article class="surface card cursor-pointer" data-id="${p.id}">
   <div class="flex gap-3">
-   <img src="${escapeHTML(p.image_url||'')}"
+
+   <img
+    src="${escapeHTML(pecahFoto(p)[0]||'')}"
     onerror="this.style.display='none'"
-    class="w-20 h-20 object-cover rounded-xl bg-slate-100">
+    class="w-20 h-20 object-cover rounded-xl bg-slate-100"
+    style="flex-shrink:0"
+   >
+
    <div class="flex-1 min-w-0">
     <div class="font-bold">${escapeHTML(p.name)}</div>
     <div class="text-xs text-slate-500 mt-1">${escapeHTML(p.sku)}</div>
@@ -315,6 +322,7 @@ function render() {
     <div class="text-xs mt-1">Rak: ${escapeHTML(p.location||'-')}</div>
    </div>
   </div>
+
   <div class="flex justify-between mt-3 text-sm">
    <span class="font-semibold ${p.stock<5?'text-red-600':'text-emerald-700'}">
     Stok: ${p.stock} ${p.stock<5?'⚠':''}
@@ -327,6 +335,7 @@ function render() {
   el.onclick=()=>showDetail(el.dataset.id);
  });
 }
+
 
 function showDetail(id) {
  const p=products.find(x=>x.id===id);
