@@ -843,26 +843,89 @@ document.getElementById('fotoGede').addEventListener('touchstart', e=>_sx=e.touc
 document.getElementById('fotoGede').addEventListener('touchend', e=>{ const dx=e.changedTouches[0].clientX-_sx; if(dx<-40) geserFoto(1); if(dx>40) geserFoto(-1); });
 
 // 2. UPLOAD: foto -> api/upload-foto.js baru -> balik URL -> tempel ke image_url lama pake koma
-document.getElementById('inputUploadFoto').addEventListener('change', async (e)=>{
-  const files = [...e.target.files]; if(!files.length || !_idAktif) return;
-  const st = document.getElementById('statusUpload'); st.textContent = "⏳ Upload "+files.length+" foto...";
-  try{
+
+document.getElementById('inputUploadFoto').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+
+  if (!files.length || !_idAktif) return;
+
+  const st = document.getElementById('statusUpload');
+  st.textContent = '⏳ Upload ' + files.length + ' foto...';
+
+  try {
+    const p = (typeof products !== 'undefined'
+      ? products
+      : window.products || []
+    ).find(x => String(x.id) === String(_idAktif));
+
+    if (!p) throw new Error('Produk tidak ditemukan.');
+
     const urls = [];
-    for(const f of files){
-      const b64 = await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); });
-      const res = await fetch('/api/upload-foto', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:b64, sku:_idAktif})});
-      const j = await res.json(); if(j.url) urls.push(j.url); else throw new Error(j.error||'gagal upload');
+
+    for (const f of files) {
+      const b64 = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => reject(new Error('Gagal membaca foto.'));
+        fr.readAsDataURL(f);
+      });
+
+      const res = await fetch('/api/upload-foto', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          image: b64,
+          id: _idAktif,
+          sku: p.sku
+        })
+      });
+
+      const j = await res.json();
+
+      if (!res.ok || !j.url) {
+        throw new Error(j.error || 'Gagal upload foto.');
+      }
+
+      urls.push(j.url);
     }
-    const p = (typeof products !== 'undefined' ? products : window.products||[]).find(x=>String(x.id)===String(_idAktif));
-    const lama = pecahFoto(p); const baru = [...lama, ...urls].join(", ");
-    // Pakai endpoint update yang udah ada di api/products.js lu (cara yang sama kayak edit produk)
-    const res2 = await fetch('/api/products', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id:_idAktif, image_url:baru})});
-    if(!res2.ok) throw new Error('Gagal simpan ke products, cek api/products.js - harus terima {id, image_url}');
-    p.image_url = baru; st.textContent = "✅ "+urls.length+" foto nempel ke "+_namaAktif;
-    window.showDetail(_idAktif); if(window.render) window.render();
-  }catch(err){ st.textContent = "❌ "+err.message; }
-  e.target.value="";
+
+    const lama = pecahFoto(p);
+    const baru = [...new Set([...lama, ...urls])].join(', ');
+
+    const res2 = await fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: _idAktif,
+        image_url: baru
+      })
+    });
+
+    const j2 = await res2.json();
+
+    if (!res2.ok) {
+      throw new Error(j2.error || 'Gagal menyimpan URL foto.');
+    }
+
+    p.image_url = baru;
+
+    st.textContent = '✅ ' + urls.length +
+      ' foto berhasil disimpan ke ' + _namaAktif;
+
+    window.showDetail(_idAktif);
+    if (window.render) window.render();
+
+  } catch (err) {
+    st.textContent = '❌ ' + err.message;
+  }
+
+  e.target.value = '';
 });
+
 
 // 3. CARI PAKE FOTO: foto -> api/gemini.js lama -> kata kunci -> cari di products lokal
 document.getElementById('inputCariFoto').addEventListener('change', async (e)=>{
