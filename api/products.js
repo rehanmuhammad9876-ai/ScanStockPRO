@@ -201,19 +201,19 @@ export default async function handler(req, res) {
         return out;
       });
 
-      const { data, error } = await db
-        .from('products')
-        .upsert(clean, {
-          onConflict: 'sku'
-        })
-        .select();
+const { error } = await db
+  .from('products')
+  .upsert(clean, {
+    onConflict: 'sku'
+  });
 
-      if (error) throw error;
+if (error) throw error;
 
-      return json(res, 200, {
-        success: true,
-        products: data
-      });
+return json(res, 200, {
+  success: true,
+  imported: clean.length
+});
+
     }
 
     // ==================================
