@@ -770,8 +770,8 @@ async function initialize() {
 initialize();
 </script>
  <!-- === TAMBAHAN CARA A: UPLOAD + SLIDER + CARI PAKE FOTO - JANGAN HAPUS YANG LAMA === -->
-<input type="file" id="inputUploadFoto" accept="image/*" capture="environment" multiple style="display:none">
-<input type="file" id="inputCariFoto" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="inputUploadFoto" accept="image/*" multiple style="display:none">
+<input type="file" id="inputCariFoto" accept="image/*" style="display:none">
 <div id="modalFoto" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
   <button onclick="tutupModalFoto()" style="position:absolute;top:16px;right:16px;background:#fff;border:0;padding:10px 14px;border-radius:99px;font-weight:800">✕</button>
   <img id="fotoGede" src="" style="width:92vw;max-width:480px;height:62vh;object-fit:cover;border-radius:16px">
@@ -857,7 +857,7 @@ document.getElementById('inputUploadFoto').addEventListener('change', async (e)=
 document.getElementById('inputCariFoto').addEventListener('change', async (e)=>{
   const file = e.target.files[0]; if(!file) return;
   const box = document.getElementById('boxCariFoto'); box.style.display="block"; box.innerHTML="⏳ AI lagi liat foto lu...";
-  document.getElementById('detail').hidden = false; document.getElementById('detail').appendChild(box);
+  document.getElementById('detail').hidden = false; document.getElementById('detailContent').appendChild(box)
   const b64 = await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file); });
   const res = await fetch('/api/gemini', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:b64, prompt:"Sebutkan nama barang ini, warna, dan jenisnya dalam 5 kata. Contoh: SEAT CUSHION CU-17 coklat"})});
   const j = await res.json(); const kunci = (j.text||j.result||j.description||"").toString();
