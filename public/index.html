@@ -1232,15 +1232,59 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
       throw new Error('Gunakan foto JPG, PNG, atau WebP.');
     }
+// Kompres foto sebelum dikirim ke Gemini
+const bitmap = await createImageBitmap(file);
 
-    const image = await new Promise((resolve, reject) => {
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+
+let image = null;
+let berhasilKompres = false;
+
+const ukuran = [1600, 1400, 1200, 1000, 800, 640];
+
+for (const maxSize of ukuran) {
+  const scale = Math.min(
+    1,
+    maxSize / Math.max(bitmap.width, bitmap.height)
+  );
+
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise(resolve => {
+    canvas.toBlob(resolve, 'image/jpeg', 0.80);
+  });
+
+  if (!blob) continue;
+
+  if (blob.size <= 2500000) {
+    image = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
-      reader.readAsDataURL(file);
+      reader.onerror = () => reject(
+        new Error('Foto gagal dibaca.')
+      );
+      reader.readAsDataURL(blob);
     });
 
-    const mimeType = file.type;
+    berhasilKompres = true;
+    break;
+  }
+}
+
+bitmap.close();
+
+if (!berhasilKompres) {
+  throw new Error('Ukuran foto masih terlalu besar. Coba foto lain.');
+}
+
+const mimeType = 'image/jpeg';
 
     // Ambil data produk yang sudah dimuat
     const daftarProduk = typeof products !== 'undefined'
