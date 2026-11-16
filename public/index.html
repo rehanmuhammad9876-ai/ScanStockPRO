@@ -377,52 +377,119 @@ function render() {
  });
 }
 
-
 function showDetail(id) {
- const p=products.find(x=>x.id===id);
- if(!p)return;
+  const p = products.find(x => String(x.id) === String(id));
+  if (!p) return;
 
- $('#detailContent').innerHTML=`
- <h2 class="text-xl font-bold mt-5">${escapeHTML(p.name)}</h2>
- <p class="text-sm text-slate-500">${escapeHTML(p.sku)}</p>
- <p class="mt-3">Barcode: ${escapeHTML(p.barcode||'-')}</p>
- <p>Harga: ${money(p.price)}</p>
- <p>Stok: ${p.stock}</p>
- <p>Kategori: ${escapeHTML(p.category||'-')}</p>
- <p>Lokasi: ${escapeHTML(p.location||'-')}</p>
- <p class="mt-3">${escapeHTML(p.description||'')}</p>
- ${isAdmin?`
- <div class="flex gap-2 mt-5">
- <button class="btn primary flex-1" id="editProduct">Edit</button>
- <button class="btn bg-red-100 text-red-800 flex-1" id="deleteProduct">Hapus</button>
- </div>`:''}
- <button id="history" class="btn bg-slate-100 w-full mt-3">Riwayat Stok</button>
- `;
+  // Siapkan galeri foto barang
+  _idAktif = p.id;
+  _namaAktif = p.name || p.nama || '';
+  _listFotoAktif = pecahFoto(p);
+  _idxFoto = 0;
 
- $('#detail').hidden=false;
+  const foto = fotoUtama(p);
 
- $('#deleteProduct')?.addEventListener('click',async()=>{
-  if(!confirm('Hapus barang ini?'))return;
-  try {
-   await api('/api/products?id='+encodeURIComponent(id),{method:'DELETE'});
-   $('#detail').hidden=true;
-   toast('Barang berhasil dihapus.');
-   loadProducts(true);
-  }catch(e){toast(e.message)}
- });
+  $('#detailContent').innerHTML = `
+    <div class="mt-5">
 
- $('#editProduct')?.addEventListener('click',()=>{
-  const form=$('#productForm');
-  Object.keys(p).forEach(k=>{
-   if(form.elements[k]) form.elements[k].value=p[k]??'';
+      <div class="w-full rounded-2xl overflow-hidden bg-slate-100"
+           style="height:240px;display:flex;align-items:center;justify-content:center">
+        ${foto
+          ? `<img src="${escapeHTML(foto)}"
+               onclick="bukaModalFoto(0)"
+               style="width:100%;height:100%;object-fit:contain;cursor:pointer">`
+          : `<div class="text-slate-400 text-sm">Belum ada foto barang</div>`
+        }
+      </div>
+
+      <h2 class="text-xl font-bold mt-4">
+        ${escapeHTML(p.name || '-')}
+      </h2>
+
+      <p class="text-sm text-slate-500 mt-1">
+        SKU: ${escapeHTML(p.sku || '-')}
+      </p>
+
+      <div class="mt-4 p-3 rounded-xl bg-slate-50">
+        <b class="block mb-2">Galeri Foto Barang</b>
+
+        <div class="flex gap-2 flex-wrap">
+          ${_listFotoAktif.map((f,i) => `
+            <img src="${escapeHTML(f)}"
+                 onclick="bukaModalFoto(${i})"
+                 style="width:65px;height:65px;object-fit:cover;border-radius:10px;cursor:pointer">
+          `).join('')}
+        </div>
+
+        <div class="flex gap-2 mt-3">
+          ${isAdmin ? `
+            <button id="btnTambahFotoDetail"
+                    class="btn bg-emerald-100 text-emerald-800 flex-1">
+              + Tambah Foto
+            </button>
+          ` : ''}
+
+          <button id="btnCariFotoDetail"
+                  class="btn bg-amber-100 text-amber-900 flex-1">
+            ◎ Cari Barang Pakai Foto
+          </button>
+        </div>
+
+        <div id="statusUpload" class="text-sm mt-2"></div>
+      </div>
+
+      <div class="mt-4 space-y-2 text-sm">
+        <p>Barcode: ${escapeHTML(p.barcode || '-')}</p>
+        <p>Harga: ${money(p.price)}</p>
+        <p>Stok: ${p.stock}</p>
+        <p>Kategori: ${escapeHTML(p.category || '-')}</p>
+        <p>Lokasi: ${escapeHTML(p.location || '-')}</p>
+      </div>
+
+      ${isAdmin ? `
+        <div class="flex gap-2 mt-5">
+          <button class="btn primary flex-1" id="editProduct">Edit</button>
+          <button class="btn bg-red-100 text-red-800 flex-1" id="deleteProduct">Hapus</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  $('#detail').hidden = false;
+
+  $('#btnTambahFotoDetail')?.addEventListener('click', () => {
+    document.getElementById('inputUploadFoto').click();
   });
-  form.dataset.editId=p.id;
-  $('#detail').hidden=true;
-  navigate('add');
- });
 
- $('#history')?.addEventListener('click',()=>showHistory(id));
+  $('#btnCariFotoDetail')?.addEventListener('click', () => {
+    document.getElementById('inputCariFoto').click();
+  });
+
+  $('#deleteProduct')?.addEventListener('click', async () => {
+    if (!confirm('Hapus barang ini?')) return;
+    try {
+      await api('/api/products?id=' + encodeURIComponent(id), {
+        method: 'DELETE'
+      });
+      $('#detail').hidden = true;
+      toast('Barang berhasil dihapus.');
+      loadProducts(true);
+    } catch (e) {
+      toast(e.message);
+    }
+  });
+
+  $('#editProduct')?.addEventListener('click', () => {
+    const form = $('#productForm');
+    Object.keys(p).forEach(k => {
+      if (form.elements[k]) form.elements[k].value = p[k] ?? '';
+    });
+    form.dataset.editId = p.id;
+    $('#detail').hidden = true;
+    navigate('add');
+  });
 }
+
 
 async function showHistory(id) {
  try {
@@ -967,8 +1034,24 @@ initialize();
   <div id="namaFotoGede" style="color:#fff;margin-top:10px;font-weight:700;text-align:center;padding:0 20px"></div>
   <div style="color:#aaa;font-size:12px;margin-top:4px">Geser / swipe buat liat foto lain di SKU yang sama</div>
 </div>
-<div id="boxCariFoto" style="display:none;padding:10px"></div>
+<div id="modalCariFoto"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9998;align-items:center;justify-content:center;padding:15px">
+
+  <div style="background:white;width:100%;max-width:450px;max-height:85vh;overflow-y:auto;border-radius:20px;padding:16px">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:18px">◎ Hasil Pencarian AI</b>
+      <button onclick="tutupModalCariFoto()" style="font-size:24px">✕</button>
+    </div>
+
+    <div id="boxCariFoto" style="display:block;padding:5px"></div>
+
+  </div>
+</div>
 <script>
+ function tutupModalCariFoto() {
+  document.getElementById('modalCariFoto').style.display = 'none';
+}
 // === CARA A: SCAN -> DETAIL -> TAMBAH FOTO ===
 let _idAktif = null, _listFotoAktif = [], _idxFoto = 0, _namaAktif = "";
 function pecahFoto(p){ if(!p) return []; if(Array.isArray(p.image_url)) return p.image_url; return String(p.image_url||"").split(",").map(s=>s.trim()).filter(Boolean); }
@@ -1195,13 +1278,13 @@ document.getElementById('inputUploadFoto').addEventListener('change', async (e) 
 
     _listFotoAktif = pecahFoto(p);
 
-    st.textContent =
-      '✅ ' + urls.length +
-      ' foto berhasil ditambahkan. Total foto: ' +
-      unik.length;
-
     window.showDetail(_idAktif);
-    render();
+render();
+
+const statusBar = document.getElementById('statusUpload');
+if (statusBar) {
+  statusBar.textContent = '✅ Foto berhasil disimpan.';
+}
 
   } catch (err) {
     console.error('UPLOAD FOTO:', err);
@@ -1221,11 +1304,11 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
   if (!file) return;
 
   const box = document.getElementById('boxCariFoto');
-  box.style.display = 'block';
-  box.innerHTML = '⏳ AI sedang mengenali barang...';
+const modal = document.getElementById('modalCariFoto');
 
-  document.getElementById('detail').hidden = false;
-  document.getElementById('detailContent').appendChild(box);
+modal.style.display = 'flex';
+box.style.display = 'block';
+box.innerHTML = '⏳ AI sedang mengenali barang...';
 
   const escapeHTML = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;',
