@@ -326,26 +326,30 @@ button {
 <div id="toast" class="toast hidden bg-slate-900 text-white rounded-xl px-5 py-3 text-sm shadow-lg"></div>
 </main>
 
-<nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 bottom z-40">
- <div class="max-w-5xl mx-auto grid grid-cols-3">
+<nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 bottom z-40 shadow-lg">
+  <div class="max-w-5xl mx-auto grid grid-cols-3">
 
-  <button data-page="search"
-   class="nav py-3 text-xs font-semibold">
-   ⌕<br>Cari
-  </button>
+    <button data-page="search"
+      class="nav py-3 text-sm font-bold">
+      <div class="text-2xl">⌕</div>
+      Cari
+    </button>
 
-  <button data-page="scan"
-   class="nav py-3 text-xs font-semibold">
-   ▦<br>Scan
-  </button>
+    <button data-page="scan"
+      class="nav py-3 text-sm font-bold">
+      <div class="text-2xl">▦</div>
+      Scan
+    </button>
 
-  <button data-page="admin"
-   class="nav py-3 text-xs font-semibold">
-   ⚙<br>Admin
-  </button>
+    <button data-page="admin"
+      class="nav py-3 text-sm font-bold">
+      <div class="text-2xl">⚙</div>
+      Admin
+    </button>
 
- </div>
+  </div>
 </nav>
+
 
 <script>
  // SHIM: Biar kode lama yang pake ZXing tetep jalan tanpa library
