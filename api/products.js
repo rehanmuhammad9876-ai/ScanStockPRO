@@ -2,9 +2,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import {
   db, json, isAdmin, adminToken,
-  requireEnv, errorMessage
+  requireEnv, errorMessage,
+  createPinHash, verifyPinHash
 } from '../lib/server.js';
-
 const fields = [
   'sku', 'barcode', 'name', 'category',
   'price', 'stock', 'location',
