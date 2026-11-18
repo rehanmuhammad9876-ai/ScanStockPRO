@@ -246,6 +246,56 @@ if (req.method === 'POST' && action === 'change-pin') {
     message: 'PIN admin berhasil diganti.'
   });
 }
+    // ==================================
+// UPDATE GALERI FOTO PRODUK
+// ==================================
+
+if (req.method === 'POST' && action === 'update-photos') {
+  if (!isAdmin(req)) {
+    return json(res, 401, {
+      error: 'Akses admin diperlukan.'
+    });
+  }
+
+  const { id, image_url } = body;
+
+  if (!id) {
+    return json(res, 400, {
+      error: 'ID produk tidak ditemukan.'
+    });
+  }
+
+  if (
+    typeof image_url !== 'string' ||
+    image_url.length > 5000
+  ) {
+    return json(res, 400, {
+      error: 'Data URL foto tidak valid atau terlalu panjang.'
+    });
+  }
+
+  const { data, error } = await db
+    .from('products')
+    .update({
+      image_url: image_url
+    })
+    .eq('id', id)
+    .select('id, sku, image_url')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data) {
+    return json(res, 404, {
+      error: 'Produk tidak ditemukan.'
+    });
+  }
+
+  return json(res, 200, {
+    success: true,
+    product: data
+  });
+}
     // TAMBAH / UPDATE PRODUK — VALIDASI INPUT
 if (req.method === 'POST' && action === 'upsert') {
     if (!isAdmin(req)) {
