@@ -170,245 +170,181 @@ if (req.method === 'POST' && action === 'login') {
     token: adminToken()
   });
 }
-    // GANTI PIN ADMIN — UPDATE LANGSUNG KE DATABASE
-    if (req.method === 'POST' && action === 'change_pin') {
-      if (!isAdmin(req)) {
-        return json(res, 403, {
-          error: 'Akses admin diperlukan.'
-        });
-      }
+    // TAMBAH / UPDATE PRODUK — VALIDASI INPUT
+if (req.method === 'POST' && action === 'upsert') {
+  const rows = Array.isArray(body.products)
+    ? body.products
+    : body.product
+      ? [body.product]
+      : [];
 
-      const oldPin = String(body.oldPin || '');
-      const newPin = String(body.newPin || '');
-      const confirmPin = String(body.confirmPin || '');
+  if (!rows.length || rows.length > 500) {
+    return json(res, 400, {
+      error: 'Jumlah data tidak valid.'
+    });
+  }
 
-      if (!/^\d{6,12}$/.test(newPin)) {
-        return json(res, 400, {
-          error: 'PIN baru harus 6–12 digit angka.'
-        });
-      }
+  const clean = [];
 
-      if (newPin !== confirmPin) {
-        return json(res, 400, {
-          error: 'Konfirmasi PIN baru tidak cocok.'
-        });
-      }
-
-      if (oldPin === newPin) {
-        return json(res, 400, {
-          error: 'PIN baru harus berbeda dari PIN lama.'
-        });
-      }
-
-      const { data: security, error: readError } = await db
-        .from('admin_security')
-        .select('pin_hash')
-        .eq('id', 1)
-        .maybeSingle();
-
-      if (readError) throw readError;
-
-      if (!security?.pin_hash) {
-        return json(res, 400, {
-          error: 'Data keamanan PIN belum tersedia.'
-        });
-      }
-
-      const validOldPin = await verifyPinHash(
-        oldPin,
-        security.pin_hash
-      );
-
-      if (!validOldPin) {
-        return json(res, 401, {
-          error: 'PIN lama salah.'
-        });
-      }
-
-      const newHash = await createPinHash(newPin);
-
-      const { error: updateError } = await db
-        .from('admin_security')
-        .update({
-          pin_hash: newHash,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', 1);
-
-      if (updateError) throw updateError;
-
-      return json(res, 200, {
-        success: true,
-        message: 'PIN Admin berhasil diubah.'
-      });
-    }
-    // PENCARIAN PRODUK
-    if (req.method === 'GET') {
-      const {
-        q = '',
-        category,
-        location,
-        stock,
-        page = 0,
-        limit = 30
-      } = req.query;
-
-      const pageSize = Math.min(
-        Math.max(Number(limit) || 30, 1),
-        100
-      );
-
-      const { data, error } = await db.rpc(
-        'search_products',
-        {
-          search_term: String(q).slice(0, 150),
-          category_filter: category || null,
-          location_filter: location || null,
-          stock_filter: stock || null,
-          page_size: pageSize,
-          page_offset:
-            Math.max(Number(page) || 0, 0) * pageSize
-        }
-      );
-
-      if (error) throw error;
-
-      return json(res, 200, {
-        products: data || []
+  for (const p of rows) {
+    if (
+      !p ||
+      typeof p !== 'object' ||
+      Array.isArray(p)
+    ) {
+      return json(res, 400, {
+        error: 'Format data produk tidak valid.'
       });
     }
 
-    // SEMUA FITUR SELAIN LOGIN DAN PENCARIAN
-    // MEMERLUKAN AKSES ADMIN
-    if (!isAdmin(req)) {
-      return json(res, 403, {
-        error: 'Akses admin diperlukan.'
+    const out = {};
+
+    // Ambil hanya field yang diizinkan
+    for (const field of fields) {
+      if (p[field] !== undefined) {
+        out[field] = p[field];
+      }
+    }
+
+    // Validasi SKU dan nama
+    if (
+      typeof out.sku !== 'string' &&
+      typeof out.sku !== 'number'
+    ) {
+      return json(res, 400, {
+        error: 'SKU tidak valid.'
       });
     }
 
-    // ==================================
-    // UPDATE FOTO PRODUK
-    // ==================================
+    if (
+      typeof out.name !== 'string' ||
+      !out.name.trim()
+    ) {
+      return json(res, 400, {
+        error: 'Nama barang wajib diisi.'
+      });
+    }
 
-    const hasImageData =
-      body.id !== undefined &&
-      body.image_url !== undefined;
+    out.sku = String(out.sku).trim();
+    out.name = out.name.trim();
 
-    const isImageUpdate =
-      hasImageData &&
-      (
-        req.method === 'PATCH' ||
-        (
-          req.method === 'POST' &&
-          (
-            action === 'update_image' ||
-            (
-              action !== 'upsert' &&
-              !body.product &&
-              !body.products
-            )
+    if (!out.sku || out.sku.length > 100) {
+      return json(res, 400, {
+        error: 'SKU kosong atau terlalu panjang.'
+      });
+    }
+
+    if (out.name.length > 300) {
+      return json(res, 400, {
+        error: 'Nama barang terlalu panjang.'
+      });
+    }
+
+    // Validasi field teks
+    const textLimits = {
+      barcode: 100,
+      category: 150,
+      location: 150,
+      image_url: 5000,
+      description: 5000
+    };
+
+    for (const [field, max] of Object.entries(textLimits)) {
+      if (out[field] === undefined || out[field] === null) {
+        continue;
+      }
+
+      if (
+        typeof out[field] !== 'string' &&
+        typeof out[field] !== 'number'
+      ) {
+        return json(res, 400, {
+          error: `Format ${field} tidak valid.`
+        });
+      }
+
+      out[field] = String(out[field]).trim();
+
+      if (out[field].length > max) {
+        return json(res, 400, {
+          error: `${field} terlalu panjang.`
+        });
+      }
+    }
+
+    // Validasi harga
+    const price = out.price === '' ? 0 : (out.price ?? 0);
+
+    if (
+      price === '' ||
+      !Number.isFinite(Number(price)) ||
+      Number(price) < 0 ||
+      Number(price) > 1000000000000
+    ) {
+      return json(res, 400, {
+        error: 'Harga produk tidak valid.'
+      });
+    }
+
+    out.price = Number(price);
+
+    // Validasi stok
+    const stock = out.stock === '' ? 0 : (out.stock ?? 0);
+
+    if (
+      stock === '' ||
+      !Number.isFinite(Number(stock)) ||
+      !Number.isInteger(Number(stock)) ||
+      Number(stock) < 0 ||
+      Number(stock) > 1000000000
+    ) {
+      return json(res, 400, {
+        error: 'Jumlah stok tidak valid.'
+      });
+    }
+
+    out.stock = Number(stock);
+
+    // Validasi sinonim pencarian
+    if (out.synonyms !== undefined && out.synonyms !== null) {
+      if (Array.isArray(out.synonyms)) {
+        if (
+          out.synonyms.length > 50 ||
+          out.synonyms.some(
+            s => typeof s !== 'string' || s.length > 100
           )
-        )
-      );
-
-    if (isImageUpdate) {
-      const id = String(body.id || '').trim();
-      const imageUrl = String(body.image_url || '').trim();
-
-      if (!id || !imageUrl) {
+        ) {
+          return json(res, 400, {
+            error: 'Sinonim produk tidak valid.'
+          });
+        }
+      } else if (
+        typeof out.synonyms !== 'string' ||
+        out.synonyms.length > 2000
+      ) {
         return json(res, 400, {
-          error: 'ID dan URL foto wajib diisi.'
+          error: 'Sinonim produk tidak valid.'
         });
       }
-
-      if (imageUrl.length > 5000) {
-        return json(res, 400, {
-          error: 'URL foto terlalu panjang.'
-        });
-      }
-
-      const { data, error } = await db
-        .from('products')
-        .update({
-          image_url: imageUrl
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return json(res, 200, {
-        success: true,
-        message: 'Foto produk berhasil disimpan.',
-        product: data
-      });
     }
 
-    // ==================================
-    // TAMBAH / UPDATE PRODUK
-    // ==================================
+    clean.push(out);
+  }
 
-    if (req.method === 'POST' && action === 'upsert') {
-      const rows = Array.isArray(body.products)
-        ? body.products
-        : body.product
-          ? [body.product]
-          : [];
+  const { error } = await db
+    .from('products')
+    .upsert(clean, {
+      onConflict: 'sku'
+    });
 
-      if (!rows.length || rows.length > 500) {
-        return json(res, 400, {
-          error: 'Jumlah data tidak valid.'
-        });
-      }
+  if (error) throw error;
 
-      const clean = rows.map(p => {
-        if (!p || typeof p !== 'object') {
-          throw new Error('Data produk tidak valid.');
-        }
-
-        const out = {};
-
-        for (const field of fields) {
-          if (p[field] !== undefined) {
-            out[field] = p[field];
-          }
-        }
-
-        if (!out.sku || !out.name) {
-          throw new Error(
-            'SKU dan nama barang wajib diisi.'
-          );
-        }
-
-        out.sku = String(out.sku).trim();
-        out.name = String(out.name).trim();
-        out.price = Math.max(
-          0,
-          Number(out.price) || 0
-        );
-        out.stock = Math.max(
-          0,
-          Math.floor(Number(out.stock) || 0)
-        );
-
-        return out;
-      });
-
-const { error } = await db
-  .from('products')
-  .upsert(clean, {
-    onConflict: 'sku'
+  return json(res, 200, {
+    success: true,
+    imported: clean.length
   });
-
-if (error) throw error;
-
-return json(res, 200, {
-  success: true,
-  imported: clean.length
-});
-
-    }
+}
+    
 
     // ==================================
     // PERUBAHAN STOK
