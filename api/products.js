@@ -429,35 +429,6 @@ if (req.method === 'DELETE') {
     success: true
   });
 }
-    
-
-  const rows = Array.isArray(body.products)
-    ? body.products
-    : body.product
-      ? [body.product]
-      : [];
-
-  // Lanjutkan kode validasi impor
-  // yang sudah kamu pasang sebelumnya
-      const { id } = req.query;
-
-      if (!id) {
-        return json(res, 400, {
-          error: 'ID tidak ditemukan.'
-        });
-      }
-
-      const { error } = await db
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      return json(res, 200, {
-        success: true
-      });
-    }
 
     return json(res, 405, {
       error: 'Metode tidak didukung.'
