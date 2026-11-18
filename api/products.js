@@ -113,7 +113,78 @@ export default async function handler(req, res) {
         token: adminToken()
       });
     }
+    // GANTI PIN ADMIN — UPDATE LANGSUNG KE DATABASE
+    if (req.method === 'POST' && action === 'change_pin') {
+      if (!isAdmin(req)) {
+        return json(res, 403, {
+          error: 'Akses admin diperlukan.'
+        });
+      }
 
+      const oldPin = String(body.oldPin || '');
+      const newPin = String(body.newPin || '');
+      const confirmPin = String(body.confirmPin || '');
+
+      if (!/^\d{6,12}$/.test(newPin)) {
+        return json(res, 400, {
+          error: 'PIN baru harus 6–12 digit angka.'
+        });
+      }
+
+      if (newPin !== confirmPin) {
+        return json(res, 400, {
+          error: 'Konfirmasi PIN baru tidak cocok.'
+        });
+      }
+
+      if (oldPin === newPin) {
+        return json(res, 400, {
+          error: 'PIN baru harus berbeda dari PIN lama.'
+        });
+      }
+
+      const { data: security, error: readError } = await db
+        .from('admin_security')
+        .select('pin_hash')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (readError) throw readError;
+
+      if (!security?.pin_hash) {
+        return json(res, 400, {
+          error: 'Data keamanan PIN belum tersedia.'
+        });
+      }
+
+      const validOldPin = await verifyPinHash(
+        oldPin,
+        security.pin_hash
+      );
+
+      if (!validOldPin) {
+        return json(res, 401, {
+          error: 'PIN lama salah.'
+        });
+      }
+
+      const newHash = await createPinHash(newPin);
+
+      const { error: updateError } = await db
+        .from('admin_security')
+        .update({
+          pin_hash: newHash,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
+
+      if (updateError) throw updateError;
+
+      return json(res, 200, {
+        success: true,
+        message: 'PIN Admin berhasil diubah.'
+      });
+    }
     // PENCARIAN PRODUK
     if (req.method === 'GET') {
       const {
