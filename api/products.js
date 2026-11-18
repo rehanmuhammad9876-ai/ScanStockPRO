@@ -429,7 +429,68 @@ if (req.method === 'DELETE') {
     success: true
   });
 }
+    // GET: membaca daftar barang
+    if (req.method === 'GET') {
+      const q = String(req.query.q || '')
+        .replace(/[^\p{L}\p{N}\s-]/gu, '')
+        .trim()
+        .slice(0, 80);
 
+      const category = String(req.query.category || '').trim();
+      const location = String(req.query.location || '').trim();
+      const stockFilter = String(req.query.stock || '').trim();
+
+      const pageNum = Number(req.query.page);
+      const page = Number.isInteger(pageNum) && pageNum >= 0
+        ? Math.min(pageNum, 100000)
+        : 0;
+
+      const limitNum = Number(req.query.limit);
+      const limit = Number.isInteger(limitNum) && limitNum > 0
+        ? Math.min(limitNum, 30)
+        : 30;
+
+      let query = db
+        .from('products')
+        .select('*')
+        .order('name')
+        .range(page * limit, (page * limit) + limit - 1);
+
+      if (q) {
+        query = query.or(
+          `name.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%`
+        );
+      }
+
+      if (category) {
+        query = query.eq('category', category);
+      }
+
+      if (location) {
+        query = query.eq('location', location);
+      }
+
+      if (stockFilter === 'empty') {
+        query = query.eq('stock', 0);
+      } else if (stockFilter === 'low') {
+        query = query.gte('stock', 1).lte('stock', 4);
+      } else if (stockFilter === 'safe') {
+        query = query.gte('stock', 5);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('PRODUCTS GET ERROR:', error);
+        return json(res, 500, {
+          error: 'Gagal mengambil data barang.'
+        });
+      }
+
+      return json(res, 200, {
+        products: data || []
+      });
+    }
     return json(res, 405, {
       error: 'Metode tidak didukung.'
     });
