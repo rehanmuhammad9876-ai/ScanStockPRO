@@ -1449,14 +1449,15 @@ document.getElementById('inputUploadFoto').addEventListener('change', async (e) 
 
     const baru = unik.join(',');
 
-    // Simpan seluruh foto ke database
-    await api('/api/products', {
-      method: 'POST',
-      body: JSON.stringify({
-        id: _idAktif,
-        image_url: baru
-      })
-    });
+    // Simpan galeri foto melalui action khusus
+await api('/api/products', {
+  method: 'POST',
+  body: JSON.stringify({
+    action: 'update-photos',
+    id: _idAktif,
+    image_url: baru
+  })
+});
 
     // Perbarui data lokal
     p.image_url = baru;
