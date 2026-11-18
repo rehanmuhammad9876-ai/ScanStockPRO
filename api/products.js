@@ -170,6 +170,82 @@ if (req.method === 'POST' && action === 'login') {
     token: adminToken()
   });
 }
+    // GANTI PIN ADMIN
+if (req.method === 'POST' && action === 'change-pin') {
+  if (!isAdmin(req)) {
+    return json(res, 403, {
+      error: 'Akses admin diperlukan.'
+    });
+  }
+
+  const { oldPin, newPin, confirmPin } = body;
+
+  if (
+    typeof oldPin !== 'string' ||
+    typeof newPin !== 'string' ||
+    typeof confirmPin !== 'string' ||
+    !oldPin ||
+    !newPin ||
+    !confirmPin
+  ) {
+    return json(res, 400, {
+      error: 'Semua kolom PIN wajib diisi.'
+    });
+  }
+
+  if (newPin !== confirmPin) {
+    return json(res, 400, {
+      error: 'PIN baru dan konfirmasi tidak sama.'
+    });
+  }
+
+  if (oldPin === newPin) {
+    return json(res, 400, {
+      error: 'PIN baru harus berbeda dari PIN lama.'
+    });
+  }
+
+  const { data: security, error: readError } = await db
+    .from('admin_security')
+    .select('pin_hash')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (readError) throw readError;
+
+  if (!security || !security.pin_hash) {
+    return json(res, 500, {
+      error: 'Data keamanan PIN admin tidak ditemukan.'
+    });
+  }
+
+  const validOldPin = await verifyPinHash(
+    oldPin,
+    security.pin_hash
+  );
+
+  if (!validOldPin) {
+    return json(res, 401, {
+      error: 'PIN lama salah.'
+    });
+  }
+
+  const newHash = await createPinHash(newPin);
+
+  const { error: updateError } = await db
+    .from('admin_security')
+    .update({
+      pin_hash: newHash,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', 1);
+
+  if (updateError) throw updateError;
+
+  return json(res, 200, {
+    message: 'PIN admin berhasil diganti.'
+  });
+}
     // TAMBAH / UPDATE PRODUK — VALIDASI INPUT
 if (req.method === 'POST' && action === 'upsert') {
     if (!isAdmin(req)) {
