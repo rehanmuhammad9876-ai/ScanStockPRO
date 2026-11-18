@@ -356,6 +356,11 @@ if (req.method === 'POST' && action === 'upsert') {
     // ==================================
 
     if (req.method === 'PATCH' && action === 'stock') {
+      if (!isAdmin(req)) {
+  return json(res, 401, {
+    error: 'Akses admin diperlukan.'
+  });
+}
       const {
         id,
         change,
@@ -398,13 +403,33 @@ if (req.method === 'POST' && action === 'upsert') {
     // HAPUS PRODUK
     // ==================================
 
-    if (req.method === 'DELETE') {
-      if (req.method === 'POST' && action === 'upsert') {
+if (req.method === 'DELETE') {
   if (!isAdmin(req)) {
     return json(res, 401, {
       error: 'Akses admin diperlukan.'
     });
   }
+
+  const { id } = req.query;
+
+  if (!id) {
+    return json(res, 400, {
+      error: 'ID tidak ditemukan.'
+    });
+  }
+
+  const { error } = await db
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+
+  return json(res, 200, {
+    success: true
+  });
+}
+    
 
   const rows = Array.isArray(body.products)
     ? body.products
