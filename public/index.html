@@ -276,7 +276,43 @@ button {
  <div id="adminTools" hidden class="space-y-3">
   <div class="surface card space-y-3">
  <h3 class="font-bold text-lg">Pusat Pengelolaan</h3>
+<!-- FORM GANTI PIN ADMIN -->
+<div id="changePinSection" class="admin-card">
+  <h3>🔐 Ganti PIN Admin</h3>
 
+  <form id="changePinForm">
+    <input
+      type="password"
+      id="oldPin"
+      placeholder="PIN lama"
+      inputmode="numeric"
+      autocomplete="current-password"
+      required
+    >
+
+    <input
+      type="password"
+      id="newPin"
+      placeholder="PIN baru"
+      inputmode="numeric"
+      autocomplete="new-password"
+      required
+    >
+
+    <input
+      type="password"
+      id="confirmPin"
+      placeholder="Konfirmasi PIN baru"
+      inputmode="numeric"
+      autocomplete="new-password"
+      required
+    >
+
+    <button type="submit">Ganti PIN</button>
+
+    <p id="changePinMessage"></p>
+  </form>
+</div>
  <button id="menuDashboard"
   class="btn primary w-full">
   ▦ Dashboard Stok
