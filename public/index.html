@@ -905,6 +905,49 @@ $('#login').onclick=async()=>{
   toast('Mode Admin aktif.');
  }catch(e){toast(e.message)}
 };
+  // FORM GANTI PIN ADMIN
+$('#changePinForm').onsubmit = async (e) => {
+  e.preventDefault();
+
+  const oldPin = $('#oldPin').value;
+  const newPin = $('#newPin').value;
+  const confirmPin = $('#confirmPin').value;
+  const msg = $('#changePinMessage');
+
+  msg.textContent = '';
+
+  if (newPin !== confirmPin) {
+    msg.textContent = 'PIN baru dan konfirmasi tidak sama.';
+    return;
+  }
+
+  try {
+    const d = await api('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'change-pin',
+        oldPin,
+        newPin,
+        confirmPin
+      })
+    });
+
+    msg.textContent = d.message || 'PIN berhasil diganti. Silakan login kembali.';
+
+    // Reset sesi admin karena token lama tidak berlaku
+    token = '';
+    isAdmin = false;
+
+    $('#adminTools').hidden = true;
+    $('#adminLogin').hidden = false;
+    $('#pin').value = '';
+
+    $('#changePinForm').reset();
+
+  } catch (e) {
+    msg.textContent = e.message || 'Gagal mengganti PIN.';
+  }
+};
 $('#menuDashboard').onclick=()=>{
  navigate('stock');
 };
