@@ -1,5 +1,8 @@
 
-import { timingSafeEqual } from 'node:crypto';
+import {
+  timingSafeEqual,
+  createHmac
+} from 'node:crypto';
 import {
   db, json, isAdmin, adminToken,
   requireEnv, errorMessage,
@@ -10,7 +13,20 @@ const fields = [
   'price', 'stock', 'location',
   'image_url', 'description', 'synonyms'
 ];
+function getLoginIpHash(req) {
+  const ip = req.headers['x-real-ip'];
 
+  if (typeof ip !== 'string' || !ip.trim()) {
+    return null;
+  }
+
+  return createHmac(
+    'sha256',
+    process.env.SESSION_SECRET
+  )
+    .update(ip.trim())
+    .digest('hex');
+}
 export default async function handler(req, res) {
   if (!requireEnv()) {
     return json(res, 500, {
@@ -24,51 +40,63 @@ export default async function handler(req, res) {
     const { action } = req.method === 'GET'
       ? req.query
       : body;
-    // LOGIN ADMIN + MIGRASI PIN OTOMATIS
-    if (req.method === 'POST' && action === 'login') {
-      const pin = String(body.pin || '');
-      const adminPin = String(process.env.ADMIN_PIN || '');
+   // LOGIN ADMIN + MIGRASI PIN + PROTEKSI BRUTE-FORCE
+if (req.method === 'POST' && action === 'login') {
+  const ipHash = getLoginIpHash(req);
 
-      if (!pin || pin.length > 100) {
-        return json(res, 401, {
-          error: 'PIN admin salah.'
-        });
-      }
+  if (!ipHash) {
+    return json(res, 503, {
+      error: 'Identitas koneksi tidak tersedia. Coba kembali.'
+    });
+  }
 
-      // Cek apakah hash PIN sudah ada di database
-      const { data: security, error: readError } = await db
-        .from('admin_security')
-        .select('pin_hash')
-        .eq('id', 1)
-        .maybeSingle();
+  // Cek apakah IP sedang diblokir
+  const { data: blocked, error: blockError } = await db
+    .rpc('admin_login_is_blocked', {
+      p_ip_hash: ipHash
+    });
 
-      if (readError) throw readError;
+  if (blockError) throw blockError;
 
-      let valid = false;
+  if (blocked === true) {
+    return json(res, 429, {
+      error: 'Terlalu banyak percobaan PIN salah. Coba lagi 15 menit kemudian.'
+    });
+  }
 
-      // Jika hash sudah tersedia, gunakan database
-      if (security?.pin_hash) {
-        valid = await verifyPinHash(
-          pin,
-          security.pin_hash
-        );
-      } else {
-        // Migrasi pertama: verifikasi PIN lama dari Vercel
-        const a = Buffer.from(pin);
-        const b = Buffer.from(adminPin);
+  const pin = String(body.pin || '');
+  const adminPin = String(process.env.ADMIN_PIN || '');
 
-        const legacyValid =
-          adminPin.length > 0 &&
-          a.length === b.length &&
-          timingSafeEqual(a, b);
+  let valid = false;
 
-        if (!legacyValid) {
-          return json(res, 401, {
-            error: 'PIN admin salah.'
-          });
-        }
+  // Baca hash PIN dari database
+  const { data: security, error: readError } = await db
+    .from('admin_security')
+    .select('pin_hash')
+    .eq('id', 1)
+    .maybeSingle();
 
-        // Buat hash PIN dan simpan ke database
+  if (readError) throw readError;
+
+  // Verifikasi hash yang sudah tersimpan
+  if (security?.pin_hash) {
+    if (pin && pin.length <= 100) {
+      valid = await verifyPinHash(
+        pin,
+        security.pin_hash
+      );
+    }
+  } else {
+    // Migrasi pertama dari ADMIN_PIN Vercel
+    if (pin && pin.length <= 100 && adminPin) {
+      const a = Buffer.from(pin);
+      const b = Buffer.from(adminPin);
+
+      const legacyValid =
+        a.length === b.length &&
+        timingSafeEqual(a, b);
+
+      if (legacyValid) {
         const pinHash = await createPinHash(pin);
 
         const { error: insertError } = await db
@@ -81,8 +109,7 @@ export default async function handler(req, res) {
         if (!insertError) {
           valid = true;
         } else {
-          // Jika terjadi login bersamaan, cek hash yang
-          // mungkin sudah dibuat oleh permintaan lain
+          // Antisipasi login bersamaan
           const { data: latest, error: latestError } =
             await db
               .from('admin_security')
@@ -102,17 +129,47 @@ export default async function handler(req, res) {
           }
         }
       }
+    }
+  }
 
-      if (!valid) {
-        return json(res, 401, {
-          error: 'PIN admin salah.'
-        });
-      }
+  // Jika PIN salah, catat percobaan
+  if (!valid) {
+    const { data: failureData, error: failureError } =
+      await db.rpc('record_admin_login_failure', {
+        p_ip_hash: ipHash
+      });
 
-      return json(res, 200, {
-        token: adminToken()
+    if (failureError) throw failureError;
+
+    const failure = Array.isArray(failureData)
+      ? failureData[0]
+      : failureData;
+
+    if (failure?.blocked_until) {
+      return json(res, 429, {
+        error: '5 kali PIN salah. Login diblokir sementara selama 15 menit.'
       });
     }
+
+    return json(res, 401, {
+      error: 'PIN admin salah.'
+    });
+  }
+
+  // PIN benar: hapus penghitung kesalahan
+  const { error: resetError } = await db.rpc(
+    'reset_admin_login_attempts',
+    {
+      p_ip_hash: ipHash
+    }
+  );
+
+  if (resetError) throw resetError;
+
+  return json(res, 200, {
+    token: adminToken()
+  });
+}
     // GANTI PIN ADMIN — UPDATE LANGSUNG KE DATABASE
     if (req.method === 'POST' && action === 'change_pin') {
       if (!isAdmin(req)) {
