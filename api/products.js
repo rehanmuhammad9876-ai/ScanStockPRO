@@ -24,18 +24,84 @@ export default async function handler(req, res) {
     const { action } = req.method === 'GET'
       ? req.query
       : body;
-
-    // LOGIN ADMIN
+    // LOGIN ADMIN + MIGRASI PIN OTOMATIS
     if (req.method === 'POST' && action === 'login') {
       const pin = String(body.pin || '');
       const adminPin = String(process.env.ADMIN_PIN || '');
 
-      const a = Buffer.from(pin);
-      const b = Buffer.from(adminPin);
+      if (!pin || pin.length > 100) {
+        return json(res, 401, {
+          error: 'PIN admin salah.'
+        });
+      }
 
-      const valid = a.length === b.length &&
-        a.length > 0 &&
-        timingSafeEqual(a, b);
+      // Cek apakah hash PIN sudah ada di database
+      const { data: security, error: readError } = await db
+        .from('admin_security')
+        .select('pin_hash')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (readError) throw readError;
+
+      let valid = false;
+
+      // Jika hash sudah tersedia, gunakan database
+      if (security?.pin_hash) {
+        valid = await verifyPinHash(
+          pin,
+          security.pin_hash
+        );
+      } else {
+        // Migrasi pertama: verifikasi PIN lama dari Vercel
+        const a = Buffer.from(pin);
+        const b = Buffer.from(adminPin);
+
+        const legacyValid =
+          adminPin.length > 0 &&
+          a.length === b.length &&
+          timingSafeEqual(a, b);
+
+        if (!legacyValid) {
+          return json(res, 401, {
+            error: 'PIN admin salah.'
+          });
+        }
+
+        // Buat hash PIN dan simpan ke database
+        const pinHash = await createPinHash(pin);
+
+        const { error: insertError } = await db
+          .from('admin_security')
+          .insert({
+            id: 1,
+            pin_hash: pinHash
+          });
+
+        if (!insertError) {
+          valid = true;
+        } else {
+          // Jika terjadi login bersamaan, cek hash yang
+          // mungkin sudah dibuat oleh permintaan lain
+          const { data: latest, error: latestError } =
+            await db
+              .from('admin_security')
+              .select('pin_hash')
+              .eq('id', 1)
+              .maybeSingle();
+
+          if (latestError) throw latestError;
+
+          if (latest?.pin_hash) {
+            valid = await verifyPinHash(
+              pin,
+              latest.pin_hash
+            );
+          } else {
+            throw insertError;
+          }
+        }
+      }
 
       if (!valid) {
         return json(res, 401, {
