@@ -172,6 +172,11 @@ if (req.method === 'POST' && action === 'login') {
 }
     // TAMBAH / UPDATE PRODUK — VALIDASI INPUT
 if (req.method === 'POST' && action === 'upsert') {
+    if (!isAdmin(req)) {
+    return json(res, 401, {
+      error: 'Akses admin diperlukan.'
+    });
+  }
   const rows = Array.isArray(body.products)
     ? body.products
     : body.product
@@ -394,6 +399,21 @@ if (req.method === 'POST' && action === 'upsert') {
     // ==================================
 
     if (req.method === 'DELETE') {
+      if (req.method === 'POST' && action === 'upsert') {
+  if (!isAdmin(req)) {
+    return json(res, 401, {
+      error: 'Akses admin diperlukan.'
+    });
+  }
+
+  const rows = Array.isArray(body.products)
+    ? body.products
+    : body.product
+      ? [body.product]
+      : [];
+
+  // Lanjutkan kode validasi impor
+  // yang sudah kamu pasang sebelumnya
       const { id } = req.query;
 
       if (!id) {
