@@ -1554,13 +1554,6 @@ const hitungSkorProdukAI = (produk, kataKunci) => {
   if (queryPunyaDomain(domainAlatTulis) && !queryPunyaDomain(domainMinum) && produkPunyaDomain(domainMinum)) {
     return 0;
   }
-  const teksProduk = normalisasi(
-    `${produk?.name || ''} ${produk?.nama || ''} ${produk?.sku || ''} ${produk?.category || ''} ${produk?.description || ''}`
-  );
-  const daftarKata = Array.isArray(kataKunci)
-    ? kataKunci.map(k => normalisasi(k)).filter(Boolean)
-    : String(kataKunci || '').toLowerCase().split(/[\s,./-]+/).filter(Boolean);
-
   const kataSpesifik = ['flask', 'vacuum', 'termos', 'tumbler', 'blocks', 'block', 'car', 'pull', 'truck', 'boneka', 'doll', 'stainless'];
   const kataJebakan = ['plastik', 'plastic', 'edukasi', 'anak', 'kids', 'mainan', 'toy', 'peralatan', 'rumah', 'tangga'];
 
