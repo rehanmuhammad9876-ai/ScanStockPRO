@@ -1323,56 +1323,28 @@ function tutupModalCariFoto() {
 }
 let _idAktif = null, _listFotoAktif = [], _idxFoto = 0, _namaAktif = "";
 const KAMUS_SINONIM = {
-  botol: ['bottle', 'flask', 'tumbler', 'thermos', 'termos', 'botol minum', 'water bottle', 'air', 'vacuum' ],
-  termos: ['thermos', 'flask', 'vacuum flask', 'bottle', 'botol', 'tumbler', 'air panas'],
-  tumbler: ['bottle', 'flask', 'thermos', 'termos', 'cup', 'mug', 'botol minum'],
-  flask: ['botol', 'termos', 'thermos', 'vacuum flask', 'bottle', 'tumbler'],
-  bottle: ['botol', 'termos', 'thermos', 'flask', 'tumbler', 'water bottle'],
-  gelas: ['glass', 'cup', 'mug', 'tumbler', 'cangkir'],
-  mug: ['cup', 'gelas', 'cangkir', 'tumbler', 'glass'],
-  cup: ['mug', 'gelas', 'cangkir', 'tumbler', 'glass'],
-  pulpen: ['pen', 'ballpen', 'ball pen', 'pena', 'bolpoin', 'gel pen', 'ballpoint'],
-  pen: ['pulpen', 'ballpen', 'ball pen', 'pena', 'bolpoin', 'gel pen', 'marker', 'spidol'],
-  pensil: ['pencil', 'wood pencil', 'mechanical pencil', 'pensil kayu', 'pensil mekanik'],
-  spidol: ['marker', 'permanent marker', 'whiteboard marker', 'pen', 'pulpen', 'drawing pen'],
-  stabilo: ['highlighter', 'marker', 'stabilo boss', 'penanda', 'spidol warna'],
-  penggaris: ['ruler', 'mistar', 'straightedge', 'penggaris besi', 'penggaris plastik'],
-  penghapus: ['eraser', 'rubber', 'stipo', 'penghapus pensil', 'penghapus karet'],
-  buku: ['book', 'notebook', 'note', 'buku tulis', 'buku catatan', 'journal', 'diary'],
-  note: ['notebook', 'buku', 'buku catatan', 'memo', 'notepad', 'sticky note'],
-  kertas: ['paper', 'hvs', 'f4', 'a4', 'folio', 'kertas gambar', 'kertas kado'],
-  gunting: ['scissors', 'shears', 'gunting kertas', 'gunting kain'],
-  cutter: ['utility knife', 'pisau cutter', 'pisau potong', 'box cutter', 'silet'],
-  lem: ['glue', 'glue stick', 'liquid glue', 'perekat', 'lem kertas', 'lem cair'],
-  selotip: ['tape', 'scotch tape', 'isolasi', 'lakban', 'masking tape', 'double tape'],
-  stapler: ['stapler', 'hekter', 'steples', 'staples', 'isi staples', 'penjepret kertas'],
-  map: ['folder', 'document folder', 'clear holder', 'stopmap', 'amplop map', 'ordner'],
-  tas: ['bag', 'ransel', 'backpack', 'tote bag', 'sling bag', 'tas sekolah', 'tas belanja'],
-  ransel: ['backpack', 'bag', 'tas', 'tas punggung', 'tas sekolah', 'rucksack'],
-  dompet: ['wallet', 'purse', 'pouch', 'card holder', 'dompet lipat', 'dompet koin'],
-  payung: ['umbrella', 'parasol', 'payung lipat', 'payung hujan'],
-  handuk: ['towel', 'bath towel', 'hand towel', 'lap', 'handuk mandi', 'handuk wajah'],
-  sabun: ['soap', 'bar soap', 'liquid soap', 'body wash', 'sabun mandi', 'sabun cuci'],
-  sampo: ['shampoo', 'hair shampoo', 'sabun rambut', 'pembersih rambut'],
-  sikat: ['brush', 'sikat gigi', 'toothbrush', 'sikat pembersih', 'sikat lantai'],
-  odol: ['toothpaste', 'pasta gigi', 'pembersih gigi'],
-  piring: ['plate', 'dish', 'saucer', 'piring makan', 'piring saji'],
-  sendok: ['spoon', 'tablespoon', 'teaspoon', 'sendok makan', 'sendok teh'],
-  garpu: ['fork', 'table fork', 'garpu makan'],
-  panci: ['pot', 'saucepan', 'cooking pot', 'stockpot', 'panci masak'],
-  wajan: ['pan', 'frying pan', 'skillet', 'wok', 'penggorengan'],
-  cangkir: ['cup', 'mug', 'gelas', 'teacup'],
-  lakban: ['tape', 'packing tape', 'selotip', 'isolasi', 'duct tape'],
-  amplop: ['envelope', 'map', 'amplop surat', 'amplop coklat'],
-  isi: ['refill', 'staples', 'lead', 'ink', 'isi ulang', 'isi pensil', 'isi cutter'],
-  spons: ['sponge', 'scouring pad', 'spons cuci piring', 'busa'],
-  ember: ['bucket', 'pail', 'timba', 'ember plastik'],
-  sapu: ['broom', 'sweeper', 'sapu lantai', 'sapu lidi'],
-  pel: ['mop', 'floor mop', 'alat pel', 'kain pel']
-    mainan: ['toy', 'toys', 'anak', 'kids', 'edukasi', 'play', 'mobil', 'car', 'boneka', 'doll', 'puzzle', 'block'],
-  mobil: ['car', 'mobilan', 'truck', 'truk', 'mobil mainan', 'toy car', 'vehicle', 'kids car'],
-  boneka: ['doll', 'plush', 'plushie', 'stuffed', 'mainan anak', 'kids'],
+  botol: ['botol minum', 'tumbler', 'flask', 'vacuum flask', 'termos', 'bottle', 'water bottle', 'gelas', 'mug', 'cup', 'cangkir'],
+  termos: ['botol', 'botol minum', 'tumbler', 'flask', 'vacuum flask', 'vacuum', 'bottle', 'water bottle'],
+  tumbler: ['botol', 'botol minum', 'termos', 'flask', 'vacuum flask', 'bottle', 'gelas', 'mug'],
+  flask: ['botol', 'botol minum', 'termos', 'tumbler', 'vacuum flask', 'vacuum', 'bottle'],
+  vacuum: ['vacuum flask', 'flask', 'termos', 'botol', 'vacuum cleaner', 'penyedot debu'],
+  pulpen: ['ball pen', 'ballpoint', 'pena', 'bolpoin', '0.35mm', '0.38mm', 'stationery', 'atk'],
+  pensil: ['pencil', 'stationery', 'atk', 'alat tulis'],
+  spidol: ['marker', 'permanent marker', 'whiteboard marker', 'stationery', 'atk'],
+  penggaris: ['ruler', 'mistar', 'stationery', 'atk'],
+  penghapus: ['eraser', 'rubber', 'stationery', 'atk'],
+  mainan: ['toy', 'toys', 'anak', 'kids', 'edukasi', 'play', 'mobil', 'car', 'boneka', 'doll', 'puzzle', 'block', 'blocks', 'pull'],
+  mobil: ['car', 'mobilan', 'truck', 'truk', 'mobil mainan', 'toy car', 'vehicle', 'kids car', 'blocks', 'pull'],
+  boneka: ['doll', 'plush', 'plushie', 'stuffed', 'bantal', 'bantal kepala', 'seulgi', 'mainan anak', 'kids'],
+  seulgi: ['boneka', 'bantal', 'bantal kepala', 'kucing', 'doll', 'plush', 'plushie', 'pillow', 'cat', 'mainan', 'toy', 'mainan anak', 'kids'],
+  bantal: ['pillow', 'cushion', 'bantal kepala', 'bantal leher', 'boneka', 'plush', 'seulgi'],
+  kucing: ['cat', 'kitten', 'anak kucing', 'boneka kucing', 'bantal kepala', 'plush', 'seulgi'],
+  blocks: ['block', 'building block', 'mainan', 'edukasi', 'toy', 'kids', 'mobil', 'car', 'pull'],
+  pull: ['pull along', 'mainan tarik', 'mobil', 'car', 'toy', 'mainan', 'blocks'],
   puzzle: ['jigsaw', 'block', 'blocks', 'building block', 'mainan edukasi', 'kids'],
+  komodo: ['stainless', 'stainless steel', 'sendok', 'garpu', 'sumpit', 'panci', 'peralatan makan', 'spoon', 'fork', 'chopsticks', 'cutlery', 'ware'],
+  stainless: ['komodo', 'stainless steel', 'panci', 'sendok', 'garpu', 'termos', 'flask', 'wadah'],
+  panci: ['pot', 'pan', 'wajan', 'komodo', 'stainless', 'peralatan masak', 'cookware', 'dapur'],
   kunci: ['key', 'keychain', 'gantungan kunci', 'lock', 'padlock', 'gembok'],
   gembok: ['padlock', 'lock', 'kunci', 'security lock', 'kunci pengaman'],
   lampu: ['lamp', 'light', 'led', 'bulb', 'bohlam', 'senter', 'flashlight', 'torch'],
@@ -1402,15 +1374,16 @@ const KAMUS_SINONIM = {
   sandal: ['slippers', 'slipper', 'sandals', 'flip flops', 'sendal'],
   topi: ['hat', 'cap', 'beanie', 'visor'],
   korek: ['lighter', 'gas lighter', 'match', 'matches', 'korek api']
-  seulgi: ['boneka', 'bantal', 'bantal kepala', 'kucing', 'doll', 'plush', 'plushie', 'pillow', 'cat', 'mainan', 'toy', 'mainan anak', 'kids'],
-  bantal: ['pillow', 'cushion', 'bantal kepala', 'bantal leher', 'boneka', 'plush'],
-  kucing: ['cat', 'kitten', 'anak kucing', 'boneka kucing', 'plush'],
-  blocks: ['block', 'building block', 'mainan', 'edukasi', 'toy', 'kids', 'mobil', 'car'],
-  pull: ['pull along', 'mainan tarik', 'mobil', 'car', 'toy', 'mainan'],
-  mainan: ['toy', 'toys', 'anak', 'kids', 'edukasi', 'play', 'mobil', 'car', 'boneka', 'doll', 'puzzle', 'block', 'blocks'],
-  mobil: ['car', 'mobilan', 'truck', 'truk', 'mobil mainan', 'toy car', 'vehicle', 'kids car', 'blocks', 'pull'],
 
 };
+  function pecahFoto(teks) {
+  return String(teks || '')
+    .toLowerCase()
+    .split(/[\s,./-]+/)
+    .map(k => k.trim())
+    .filter(k => k.length >= 2);
+}
+
 const hitungSkorProdukAI = (produk, kataKunci) => {
   const normalisasi = (teks) =>
     String(teks || '')
