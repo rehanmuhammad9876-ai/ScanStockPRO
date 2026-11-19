@@ -1554,21 +1554,20 @@ const hitungSkorProdukAI = (produk, kataKunci) => {
   if (queryPunyaDomain(domainAlatTulis) && !queryPunyaDomain(domainMinum) && produkPunyaDomain(domainMinum)) {
     return 0;
   }
-  const kataSpesifik = ['flask', 'vacuum', 'termos', 'tumbler', 'blocks', 'block', 'car', 'pull', 'truck', 'boneka', 'doll', 'stainless'];
-  const kataJebakan = ['plastik', 'plastic', 'edukasi', 'anak', 'kids', 'mainan', 'toy', 'peralatan', 'rumah', 'tangga'];
-
+  try {
+  const _kataQuery = (typeof daftarKunciAwal !== 'undefined' ? daftarKunciAwal : (typeof daftarKata !== 'undefined' ? daftarKata : []));
+  const _teks = (typeof teksProduk !== 'undefined' ? teksProduk : '');
+  const kataSpesifik = ['flask', 'vacuum', 'thermos', 'tumbler', 'stainless', 'steel', 'botol'];
+  const kataJebakan = ['plastik', 'plastic', 'mainan', 'toy'];
   let bonusBobot = 0;
-  for (const k of daftarKata) {
-    if (!teksProduk.includes(k)) continue;
-    if (kataSpesifik.includes(k)) {
-      bonusBobot += 40;
-    } else if (kataJebakan.includes(k)) {
-      bonusBobot -= 15;
-    } else {
-      bonusBobot += 10;
-    }
+  for (const k of _kataQuery) {
+    if (!_teks.includes(k)) continue;
+    if (kataSpesifik.includes(k)) bonusBobot += 40;
+    else if (kataJebakan.includes(k)) bonusBobot -= 15;
+    else bonusBobot += 10;
   }
   skor += bonusBobot;
+} catch (e) { }
 
   return Math.max(0, skor);
 };
