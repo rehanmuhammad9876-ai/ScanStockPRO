@@ -89,6 +89,86 @@ input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:10px;pad
 button {
   -webkit-tap-highlight-color: transparent;
 }
+  /* === FALLBACK LAYOUT & LOGO JIKA TAILWIND BELUM/GAGAL LOAD === */
+header.sc-header svg {
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  max-width: 64px !important;
+  flex-shrink: 0 !important;
+}
+
+header.sc-header > div > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+header.sc-header > div > div > div:first-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+}
+
+header.sc-header > div > div > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+#role {
+  display: inline-flex !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  width: auto !important;
+}
+
+#theme {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#searchPage .flex.gap-2 {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+#searchPage #clear {
+  width: 48px !important;
+  flex-shrink: 0 !important;
+}
+
+#searchPage .flex.gap-2.mt-3 {
+  display: flex !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+
+#searchPage .flex.gap-2.mt-3 > button {
+  flex: 1 1 0% !important;
+}
+
+#searchPage .grid.grid-cols-2 {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 16px !important;
+}
+
+nav.fixed.bottom-0 .grid.grid-cols-3 {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
 </style>
 </head>
 
