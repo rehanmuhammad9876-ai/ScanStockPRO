@@ -31,36 +31,37 @@ export default async function handler(req, res) {
     } = req.body || {};
 
     const prompts = {
-      identify: `Identifikasi produk pada foto secara visual (jenis barang, warna dominan, bentuk/model, ciri fisik, perkiraan merek jika terlihat).
-Keluarkan JSON: {"name":"","brand":"","color":"","shape":"","category":"","description":"","keywords":[]}.
-Jangan mengarang merek jika tidak terlihat.`,
+      identify: `Sebutkan HANYA 1 jenis barang utama pada foto dan maksimal 5 kata kunci penting (tanpa warna, motif, bentuk, atau kalimat panjang).
+Keluarkan JSON valid: {"name":"jenis barang singkat","category":"kategori singkat","keywords":["kata1","kata2"]}.`,
 
-      describe: `Buat deskripsi singkat produk dan kategori.
+      describe: `Buat deskripsi sangat singkat dan kategori untuk barang gudang.
 Nama produk: ${name || ''}.
-JSON: {"description":"","category":"","synonyms":[]}.`,
+JSON valid: {"description":"","category":"","synonyms":[]}.`,
 
-      search: `Ubah kalimat pengguna menjadi kata kunci pencarian barang gudang.
+      search: `Ubah kalimat pengguna menjadi maksimal 5 kata kunci pencarian barang gudang.
 Kalimat: ${query || ''}.
-JSON: {"keywords":[],"category":null}.`,
+JSON valid: {"keywords":[],"category":null}.`,
 
       verify: `Kamu adalah pencari barang gudang. Tugasmu HANYA mencocokkan FOTO dengan DAFTAR PRODUK.
 
-FOTO: Lihat foto ini, tentukan 1 jenis barangnya saja. Contoh: "botol minum", "vacuum cleaner", "ball pen".
-
 DAFTAR PRODUK (candidates):
-Kandidat: ${JSON.stringify(candidates || [])}.
+${JSON.stringify(candidates || [])}
 
 ATURAN WAJIB:
-1. JANGAN peduli warna, motif, ukuran, dan bahan dulu. Yang penting JENIS BARANGNYA SAMA.
-2. SINONIM itu SAMA. botol = tumbler = flask = termos = botol minum. vacuum = vacuum cleaner = penyedot debu. ball pen = pulpen = pena.
-3. Jika jenis barangnya beda, similarity = 0. JANGAN dipaksakan.
-4. Jika jenis barangnya sama, similarity = 90-100, walaupun warna / motif beda.
-5. Balas HANYA JSON valid, tanpa penjelasan lain.
+1. Fokus HANYA pada kesamaan JENIS BARANG. Warna, motif, ukuran, bahan, dan kapasitas boleh beda.
+2. SINONIM dianggap SAMA:
+   - botol = botol minum = tumbler = flask = termos = bottle = water bottle
+   - vacuum = vacuum cleaner = penyedot debu
+   - pulpen = ball pen = ballpoint = pena = bolpoin
+   - pensil = pencil; spidol = marker; penggaris = ruler = mistar; penghapus = eraser
+3. Jika jenis barang di FOTO BEDA dengan kandidat, similarity = 0 (jangan masukkan ke matches).
+4. Jika jenis barang di FOTO SAMA dengan kandidat (meski warna/motif beda), beri similarity 90-100.
+5. Balas HANYA JSON valid, tanpa markdown dan tanpa penjelasan lain.
 
 Format balasan:
-{"jenis_barang": "botol minum", "matches": [{"sku": "...", "similarity": 95}]}
-Jika TIDAK ADA yang jenisnya sama, balas: {"jenis_barang": "...", "matches": []}
-`,
+{"jenis_barang":"botol minum","matches":[{"sku":"...","similarity":95}]}
+Jika tidak ada yang jenisnya sama, balas:
+{"jenis_barang":"...","matches":[]}`
     };
 
     if (!prompts[action]) {
@@ -92,7 +93,7 @@ Jika TIDAK ADA yang jenisnya sama, balas: {"jenis_barang": "...", "matches": []}
       });
     }
 
-       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
+    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(MODEL)}:generateContent`;
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -104,7 +105,7 @@ Jika TIDAK ADA yang jenisnya sama, balas: {"jenis_barang": "...", "matches": []}
         contents: [{ parts }],
         generationConfig: {
           responseMimeType: 'application/json',
-          temperature: 0.2
+          temperature: 0.1
         }
       })
     });
