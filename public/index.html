@@ -1323,6 +1323,198 @@ function tutupModalCariFoto() {
   document.getElementById('modalCariFoto').style.display = 'none';
 }
 let _idAktif = null, _listFotoAktif = [], _idxFoto = 0, _namaAktif = "";
+const KAMUS_SINONIM = {
+  botol: ['bottle', 'flask', 'tumbler', 'thermos', 'termos', 'botol minum', 'water bottle', 'air'],
+  termos: ['thermos', 'flask', 'vacuum flask', 'bottle', 'botol', 'tumbler', 'air panas'],
+  tumbler: ['bottle', 'flask', 'thermos', 'termos', 'cup', 'mug', 'botol minum'],
+  flask: ['botol', 'termos', 'thermos', 'vacuum flask', 'bottle', 'tumbler'],
+  bottle: ['botol', 'termos', 'thermos', 'flask', 'tumbler', 'water bottle'],
+  gelas: ['glass', 'cup', 'mug', 'tumbler', 'cangkir'],
+  mug: ['cup', 'gelas', 'cangkir', 'tumbler', 'glass'],
+  cup: ['mug', 'gelas', 'cangkir', 'tumbler', 'glass'],
+  pulpen: ['pen', 'ballpen', 'ball pen', 'pena', 'bolpoin', 'gel pen', 'ballpoint'],
+  pen: ['pulpen', 'ballpen', 'ball pen', 'pena', 'bolpoin', 'gel pen', 'marker', 'spidol'],
+  pensil: ['pencil', 'wood pencil', 'mechanical pencil', 'pensil kayu', 'pensil mekanik'],
+  spidol: ['marker', 'permanent marker', 'whiteboard marker', 'pen', 'pulpen', 'drawing pen'],
+  stabilo: ['highlighter', 'marker', 'stabilo boss', 'penanda', 'spidol warna'],
+  penggaris: ['ruler', 'mistar', 'straightedge', 'penggaris besi', 'penggaris plastik'],
+  penghapus: ['eraser', 'rubber', 'stipo', 'penghapus pensil', 'penghapus karet'],
+  buku: ['book', 'notebook', 'note', 'buku tulis', 'buku catatan', 'journal', 'diary'],
+  note: ['notebook', 'buku', 'buku catatan', 'memo', 'notepad', 'sticky note'],
+  kertas: ['paper', 'hvs', 'f4', 'a4', 'folio', 'kertas gambar', 'kertas kado'],
+  gunting: ['scissors', 'shears', 'gunting kertas', 'gunting kain'],
+  cutter: ['utility knife', 'pisau cutter', 'pisau potong', 'box cutter', 'silet'],
+  lem: ['glue', 'glue stick', 'liquid glue', 'perekat', 'lem kertas', 'lem cair'],
+  selotip: ['tape', 'scotch tape', 'isolasi', 'lakban', 'masking tape', 'double tape'],
+  stapler: ['stapler', 'hekter', 'steples', 'staples', 'isi staples', 'penjepret kertas'],
+  map: ['folder', 'document folder', 'clear holder', 'stopmap', 'amplop map', 'ordner'],
+  tas: ['bag', 'ransel', 'backpack', 'tote bag', 'sling bag', 'tas sekolah', 'tas belanja'],
+  ransel: ['backpack', 'bag', 'tas', 'tas punggung', 'tas sekolah', 'rucksack'],
+  dompet: ['wallet', 'purse', 'pouch', 'card holder', 'dompet lipat', 'dompet koin'],
+  payung: ['umbrella', 'parasol', 'payung lipat', 'payung hujan'],
+  handuk: ['towel', 'bath towel', 'hand towel', 'lap', 'handuk mandi', 'handuk wajah'],
+  sabun: ['soap', 'bar soap', 'liquid soap', 'body wash', 'sabun mandi', 'sabun cuci'],
+  sampo: ['shampoo', 'hair shampoo', 'sabun rambut', 'pembersih rambut'],
+  sikat: ['brush', 'sikat gigi', 'toothbrush', 'sikat pembersih', 'sikat lantai'],
+  odol: ['toothpaste', 'pasta gigi', 'pembersih gigi'],
+  piring: ['plate', 'dish', 'saucer', 'piring makan', 'piring saji'],
+  sendok: ['spoon', 'tablespoon', 'teaspoon', 'sendok makan', 'sendok teh'],
+  garpu: ['fork', 'table fork', 'garpu makan'],
+  panci: ['pot', 'saucepan', 'cooking pot', 'stockpot', 'panci masak'],
+  wajan: ['pan', 'frying pan', 'skillet', 'wok', 'penggorengan'],
+  cangkir: ['cup', 'mug', 'gelas', 'teacup'],
+  lakban: ['tape', 'packing tape', 'selotip', 'isolasi', 'duct tape'],
+  amplop: ['envelope', 'map', 'amplop surat', 'amplop coklat'],
+  isi: ['refill', 'staples', 'lead', 'ink', 'isi ulang', 'isi pensil', 'isi cutter'],
+  spons: ['sponge', 'scouring pad', 'spons cuci piring', 'busa'],
+  ember: ['bucket', 'pail', 'timba', 'ember plastik'],
+  sapu: ['broom', 'sweeper', 'sapu lantai', 'sapu lidi'],
+  pel: ['mop', 'floor mop', 'alat pel', 'kain pel']
+};
+const hitungSkorProdukAI = (produk, kataKunci) => {
+  const normalisasi = (teks) =>
+    String(teks || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const namaProduk = normalisasi(produk?.nama || produk?.name || '');
+  const kategoriProduk = normalisasi(produk?.kategori || produk?.category || '');
+  const skuProduk = normalisasi(produk?.sku || produk?.kode || '');
+  const teksProduk = `${namaProduk} ${kategoriProduk} ${skuProduk}`.trim();
+
+  if (!teksProduk) return 0;
+
+  const daftarKunciAwal = Array.isArray(kataKunci)
+    ? kataKunci.map((item) => normalisasi(item)).filter(Boolean)
+    : [normalisasi(kataKunci)].filter(Boolean);
+
+  if (!daftarKunciAwal.length) return 0;
+
+  const kamusAman = typeof KAMUS_SINONIM === 'object' && KAMUS_SINONIM !== null ? KAMUS_SINONIM : {};
+
+  const perluasFrasa = (frasa) => {
+    const hasil = new Set();
+    if (!frasa) return hasil;
+    hasil.add(frasa);
+
+    const tokenFrasa = frasa.split(' ').filter(Boolean);
+    tokenFrasa.forEach((tok) => hasil.add(tok));
+
+    const tambahDariKamus = (kunci) => {
+      const normalKunci = normalisasi(kunci);
+      if (!normalKunci) return;
+      hasil.add(normalKunci);
+
+      const daftarSinonim = kamusAman[normalKunci] || kamusAman[kunci] || [];
+      daftarSinonim.forEach((sin) => {
+        const normalSin = normalisasi(sin);
+        if (normalSin) {
+          hasil.add(normalSin);
+          normalSin.split(' ').filter(Boolean).forEach((bagian) => hasil.add(bagian));
+        }
+      });
+    };
+
+    tambahDariKamus(frasa);
+    tokenFrasa.forEach((tok) => tambahDariKamus(tok));
+
+    Object.entries(kamusAman).forEach(([induk, daftarSinonim]) => {
+      const normalInduk = normalisasi(induk);
+      const daftarNormal = Array.isArray(daftarSinonim)
+        ? daftarSinonim.map((s) => normalisasi(s)).filter(Boolean)
+        : [];
+      if (
+        normalInduk === frasa ||
+        tokenFrasa.includes(normalInduk) ||
+        daftarNormal.includes(frasa) ||
+        tokenFrasa.some((tok) => daftarNormal.includes(tok))
+      ) {
+        tambahDariKamus(normalInduk);
+      }
+    });
+
+    return hasil;
+  };
+
+  const grupKunci = daftarKunciAwal.map((frasa) => perluasFrasa(frasa));
+  const semuaKunciDiperluas = new Set();
+  grupKunci.forEach((setGrup) => setGrup.forEach((k) => semuaKunciDiperluas.add(k)));
+
+  const cocokDenganBatasKata = (sumber, istilah) => {
+    if (!sumber || !istilah) return false;
+    const escaped = istilah.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i');
+    return regex.test(sumber);
+  };
+
+  let skor = 0;
+  let adaKecocokan = false;
+
+  grupKunci.forEach((setGrup) => {
+    let cocokDiGrupIni = false;
+    setGrup.forEach((istilah) => {
+      if (istilah.length < 2) return;
+
+      if (cocokDenganBatasKata(namaProduk, istilah)) {
+        skor += istilah.includes(' ') ? 12 : 8;
+        cocokDiGrupIni = true;
+      } else if (namaProduk.includes(istilah)) {
+        skor += istilah.includes(' ') ? 9 : 5;
+        cocokDiGrupIni = true;
+      }
+
+      if (cocokDenganBatasKata(kategoriProduk, istilah)) {
+        skor += istilah.includes(' ') ? 6 : 4;
+        cocokDiGrupIni = true;
+      } else if (kategoriProduk.includes(istilah)) {
+        skor += 3;
+        cocokDiGrupIni = true;
+      }
+
+      if (skuProduk && (cocokDenganBatasKata(skuProduk, istilah) || skuProduk.includes(istilah))) {
+        skor += 2;
+        cocokDiGrupIni = true;
+      }
+    });
+
+    if (cocokDiGrupIni) {
+      adaKecocokan = true;
+    }
+  });
+
+  if (!adaKecocokan) {
+    return 0;
+  }
+
+  const domainMinum = ['botol', 'termos', 'tumbler', 'flask', 'bottle', 'gelas', 'mug', 'cup', 'cangkir', 'vacuum', 'water', 'air'];
+  const domainAlatTulis = ['pulpen', 'pen', 'ballpen', 'ball pen', 'pena', 'bolpoin', 'gel pen', 'ballpoint', 'pensil', 'pencil', 'spidol', 'marker', 'stabilo', 'highlighter', 'penggaris', 'ruler', 'mistar', 'penghapus', 'eraser', 'buku', 'book', 'notebook', 'note', 'kertas', 'paper', 'gunting', 'scissors', 'cutter', 'lem', 'glue', 'selotip', 'tape', 'lakban', 'stapler', 'hekter', 'steples', 'staples', 'map', 'folder', 'amplop', 'envelope'];
+
+  const queryPunyaDomain = (daftarDomain) =>
+    Array.from(semuaKunciDiperluas).some((k) =>
+      daftarDomain.some((d) => k === d || cocokDenganBatasKata(k, d))
+    );
+
+  const produkPunyaDomain = (daftarDomain) =>
+    daftarDomain.some((d) => cocokDenganBatasKata(teksProduk, d) || teksProduk.includes(d));
+
+  if (queryPunyaDomain(domainMinum) && produkPunyaDomain(domainMinum)) {
+    skor += 6;
+  }
+  if (queryPunyaDomain(domainAlatTulis) && produkPunyaDomain(domainAlatTulis)) {
+    skor += 6;
+  }
+
+  if (queryPunyaDomain(domainMinum) && !queryPunyaDomain(domainAlatTulis) && produkPunyaDomain(domainAlatTulis)) {
+    return 0;
+  }
+  if (queryPunyaDomain(domainAlatTulis) && !queryPunyaDomain(domainMinum) && produkPunyaDomain(domainMinum)) {
+    return 0;
+  }
+
+  return Math.max(0, skor);
+};
 
 function pecahFoto(p) {
   if (!p) return [];
