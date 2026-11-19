@@ -46,17 +46,17 @@ JSON valid: {"keywords":[],"category":null}.`,
 
 DAFTAR PRODUK (candidates):
 ${JSON.stringify(candidates || [])}
-
 ATURAN WAJIB:
-1. Fokus HANYA pada kesamaan JENIS BARANG. Warna, motif, ukuran, bahan, dan kapasitas boleh beda.
+1. Fokus pada kesamaan JENIS BARANG sekaligus kecocokan istilah/ciri utama (misalnya jika foto adalah vacuum flask/termos, utamakan kandidat yang mengandung kata flask/vacuum/termos dibanding sekadar botol biasa/plastik/aluminium).
 2. SINONIM dianggap SAMA:
-   - botol = botol minum = tumbler = flask = termos = bottle = water bottle
+   - botol = botol minum = tumbler = flask = vacuum flask = termos = bottle = water bottle
    - vacuum = vacuum cleaner = penyedot debu
    - pulpen = ball pen = ballpoint = pena = bolpoin
    - pensil = pencil; spidol = marker; penggaris = ruler = mistar; penghapus = eraser
 3. Jika jenis barang di FOTO BEDA dengan kandidat, similarity = 0 (jangan masukkan ke matches).
-4. Jika jenis barang di FOTO SAMA dengan kandidat (meski warna/motif beda), beri similarity 90-100.
+4. Jika jenis barang SAMA, beri similarity 75-85 untuk yang umum sejenis, dan 88-99 untuk yang paling spesifik/sesuai. Urutkan matches dari similarity tertinggi ke terendah (maksimal 5 item).
 5. Balas HANYA JSON valid, tanpa markdown dan tanpa penjelasan lain.
+
 
 Format balasan:
 {"jenis_barang":"botol minum","matches":[{"sku":"...","similarity":95}]}
