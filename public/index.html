@@ -1778,7 +1778,9 @@ if (!alternatif.length) {
   alternatif = [];
 }
 let kandidat = alternatif;
-
+if (!kandidat.length) {
+  return [];
+}
     // 3. AI membandingkan foto dengan kandidat
     const verifikasi = await fetch('/api/gemini', {
       method: 'POST',
