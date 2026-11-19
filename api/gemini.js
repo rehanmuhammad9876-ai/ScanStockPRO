@@ -1,5 +1,14 @@
-
 const MODEL = 'gemini-3.5-flash-lite';
+
+function parseJsonSafe(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const cleaned = rawText
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  return JSON.parse(cleaned);
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,9 +31,8 @@ export default async function handler(req, res) {
     } = req.body || {};
 
     const prompts = {
-      identify: `Identifikasi produk pada foto.
-Keluarkan JSON: {"name":"","brand":"","color":"",
-"category":"","description":"","keywords":[]}.
+      identify: `Identifikasi produk pada foto secara visual (jenis barang, warna dominan, bentuk/model, ciri fisik, perkiraan merek jika terlihat).
+Keluarkan JSON: {"name":"","brand":"","color":"","shape":"","category":"","description":"","keywords":[]}.
 Jangan mengarang merek jika tidak terlihat.`,
 
       describe: `Buat deskripsi singkat produk dan kategori.
@@ -35,10 +43,10 @@ JSON: {"description":"","category":"","synonyms":[]}.`,
 Kalimat: ${query || ''}.
 JSON: {"keywords":[],"category":null}.`,
 
-      verify: `Bandingkan foto barang dengan kandidat database.
+      verify: `Bandingkan foto barang dengan kandidat database berdasarkan jenis barang, warna, bentuk, dan ciri visual.
 Kandidat: ${JSON.stringify(candidates || [])}.
 JSON: {"matches":[{"sku":"","similarity":0,"reason":""}]}.
-Jangan menyatakan cocok jika bukti visual tidak cukup.`
+Berikan similarity (0-100) untuk kandidat yang memiliki kemiripan visual wajar.`
     };
 
     if (!prompts[action]) {
@@ -63,15 +71,15 @@ Jangan menyatakan cocok jika bukti visual tidak cukup.`
       }
 
       parts.push({
-        inline_data: {
-          mime_type: mimeType,
+        inlineData: {
+          mimeType,
           data: image.replace(/^data:image\/\w+;base64,/, '')
         }
       });
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){MODEL}:generateContent`,
       {
         method: 'POST',
         headers: {
@@ -89,7 +97,8 @@ Jangan menyatakan cocok jika bukti visual tidak cukup.`
     );
 
     if (!response.ok) {
-      console.error('Gemini request failed:', response.status);
+      const errBody = await response.text().catch(() => '');
+      console.error('Gemini request failed:', response.status, errBody);
       throw new Error('AI_UNAVAILABLE');
     }
 
@@ -99,8 +108,9 @@ Jangan menyatakan cocok jika bukti visual tidak cukup.`
 
     if (!output) throw new Error('EMPTY_RESPONSE');
 
+    const parsed = parseJsonSafe(output);
     return res.status(200).json({
-      result: JSON.parse(output)
+      result: parsed
     });
 
   } catch (error) {
