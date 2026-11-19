@@ -1383,6 +1383,35 @@ const KAMUS_SINONIM = {
     .map(k => k.trim())
     .filter(k => k.length >= 2);
 }
+function ambilKataKunciInti(teks) {
+  const kataUmumMenjebak = new Set([
+    'plastik', 'plastic', 'edukasi', 'anak', 'kids', 'mainan', 'toy',
+    'peralatan', 'rumah', 'tangga', 'barang', 'produk', 'item', 'set', 'pcs'
+  ]);
+
+  const kataPrioritasBenda = [
+    'flask', 'vacuum', 'termos', 'tumbler', 'botol', 'bottle',
+    'blocks', 'block', 'mobil', 'car', 'pull', 'truck', 'truk',
+    'boneka', 'doll', 'plush', 'bantal', 'kucing', 'cat',
+    'komodo', 'stainless', 'panci', 'sendok', 'garpu',
+    'pulpen', 'pensil', 'spidol', 'penggaris', 'penghapus',
+    'kunci', 'gembok', 'lampu', 'senter', 'baterai', 'kabel', 'colokan'
+  ];
+
+  const semuaKata = [...new Set(
+    String(teks || '')
+      .toLowerCase()
+      .split(/[\s,./-]+/)
+      .map(k => k.trim())
+      .filter(k => k.length >= 2)
+  )];
+
+  const bendaCocok = semuaKata.filter(k => kataPrioritasBenda.includes(k));
+  const nonJebakan = semuaKata.filter(k => !kataUmumMenjebak.has(k) && !bendaCocok.includes(k));
+  const sisa = semuaKata.filter(k => !bendaCocok.includes(k) && !nonJebakan.includes(k));
+
+  return [...bendaCocok, ...nonJebakan, ...sisa].slice(0, 5);
+}
 
 const hitungSkorProdukAI = (produk, kataKunci) => {
   const normalisasi = (teks) =>
@@ -1525,6 +1554,28 @@ const hitungSkorProdukAI = (produk, kataKunci) => {
   if (queryPunyaDomain(domainAlatTulis) && !queryPunyaDomain(domainMinum) && produkPunyaDomain(domainMinum)) {
     return 0;
   }
+  const teksProduk = normalisasi(
+    `${produk?.name || ''} ${produk?.nama || ''} ${produk?.sku || ''} ${produk?.category || ''} ${produk?.description || ''}`
+  );
+  const daftarKata = Array.isArray(kataKunci)
+    ? kataKunci.map(k => normalisasi(k)).filter(Boolean)
+    : String(kataKunci || '').toLowerCase().split(/[\s,./-]+/).filter(Boolean);
+
+  const kataSpesifik = ['flask', 'vacuum', 'termos', 'tumbler', 'blocks', 'block', 'car', 'pull', 'truck', 'boneka', 'doll', 'stainless'];
+  const kataJebakan = ['plastik', 'plastic', 'edukasi', 'anak', 'kids', 'mainan', 'toy', 'peralatan', 'rumah', 'tangga'];
+
+  let bonusBobot = 0;
+  for (const k of daftarKata) {
+    if (!teksProduk.includes(k)) continue;
+    if (kataSpesifik.includes(k)) {
+      bonusBobot += 40;
+    } else if (kataJebakan.includes(k)) {
+      bonusBobot -= 15;
+    } else {
+      bonusBobot += 10;
+    }
+  }
+  skor += bonusBobot;
 
   return Math.max(0, skor);
 };
@@ -1836,9 +1887,10 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     )].sort((a, b) => b.length - a.length);
 
     const daftarKandidatSumber = await cariKandidatDariDatabase(
-      kataTerpilih,
-      daftarProduk
-    );
+  ambilKataKunciInti(kataKunci),
+  daftarProduk
+);
+
 
     box.innerHTML = renderPreviewFotoUpload(
       image,
