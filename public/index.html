@@ -8,9 +8,9 @@
 <link rel="manifest" href="/manifest.json">
 <title>SCANSTOCK Pro</title>
 
-<script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-<script src="[https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js](https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js)"></script>
-<script src="[https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js](https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js)"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -27,7 +27,7 @@ body{font-family:Inter,system-ui,sans-serif}
 .card{border-radius:16px;padding:14px}
 input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:11px}
 [hidden]{display:none!important}
-
+  
 /* === SCANSTOCK PRO NEW DESIGN === */
 
 .sc-header {
@@ -89,90 +89,12 @@ input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:10px;pad
 button {
   -webkit-tap-highlight-color: transparent;
 }
-  /* === FALLBACK LAYOUT & LOGO JIKA TAILWIND BELUM/GAGAL LOAD === */
-header.sc-header svg {
-  width: 64px !important;
-  height: 64px !important;
-  min-width: 64px !important;
-  max-width: 64px !important;
-  flex-shrink: 0 !important;
-}
-
-header.sc-header > div > div {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 12px !important;
-}
-
-header.sc-header > div > div > div:first-child {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  min-width: 0 !important;
-}
-
-header.sc-header > div > div > div:last-child {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  flex-shrink: 0 !important;
-}
-
-#role {
-  display: inline-flex !important;
-  align-items: center !important;
-  white-space: nowrap !important;
-  width: auto !important;
-}
-
-#theme {
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px !important;
-  flex-shrink: 0 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-#searchPage .flex.gap-2 {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-#searchPage #clear {
-  width: 48px !important;
-  flex-shrink: 0 !important;
-}
-
-#searchPage .flex.gap-2.mt-3 {
-  display: flex !important;
-  gap: 8px !important;
-  margin-top: 12px !important;
-}
-
-#searchPage .flex.gap-2.mt-3 > button {
-  flex: 1 1 0% !important;
-}
-
-#searchPage .grid.grid-cols-2 {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 8px !important;
-  margin-top: 16px !important;
-}
-
-nav.fixed.bottom-0 .grid.grid-cols-3 {
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-}
 
 </style>
 </head>
 
 <body class="bg-slate-50 text-slate-800 min-h-screen">
+
 
 <header class="sc-header text-white px-4 py-4 sticky top-0 z-40">
   <div class="max-w-5xl mx-auto">
@@ -184,7 +106,7 @@ nav.fixed.bottom-0 .grid.grid-cols-3 {
         <!-- LOGO S + LENSA KAMERA -->
         <svg viewBox="0 0 120 120"
              class="w-16 h-16 flex-shrink-0"
-             xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+             xmlns="http://www.w3.org/2000/svg">
 
           <defs>
             <linearGradient id="logoS" x1="0" y1="0" x2="1" y2="1">
@@ -251,6 +173,7 @@ nav.fixed.bottom-0 .grid.grid-cols-3 {
     </div>
   </div>
 </header>
+
 
 <div id="offline" hidden class="bg-amber-100 text-amber-900 text-center p-2 text-sm">
  ⚠ Mode Offline — Menampilkan data cache terakhir.
@@ -462,8 +385,9 @@ nav.fixed.bottom-0 .grid.grid-cols-3 {
   </div>
 </nav>
 
+
 <script>
-// SHIM: Biar kode lama yang pake ZXing tetep jalan tanpa library
+ // SHIM: Biar kode lama yang pake ZXing tetep jalan tanpa library
 if(!window.ZXingBrowser){
   window.ZXingBrowser = {
     BrowserCodeReader: {
@@ -526,6 +450,7 @@ function toast(message) {
  setTimeout(() => el.classList.add('hidden'), 2800);
 }
 
+
 async function api(url, options = {}) {
   let response;
 
@@ -572,6 +497,7 @@ async function api(url, options = {}) {
   }
 }
 
+
 function escapeHTML(s='') {
  return String(s).replace(/[&<>"']/g,c=>({
   '&':'&amp;','<':'&lt;','>':'&gt;',
@@ -616,6 +542,7 @@ async function loadProducts(reset=false) {
   } else toast(e.message);
  }
 }
+
 
 function render() {
  $('#count').textContent=products.length+' barang';
@@ -765,6 +692,7 @@ function showDetail(id) {
   });
 }
 
+
 async function showHistory(id) {
  try {
   const d=await api('/api/products?action=logs&id='+id);
@@ -831,9 +759,11 @@ async function startScanner() {
     scanner = new ZXingBrowser.BrowserMultiFormatReader();
     $('#scanStatus').textContent = 'Arahkan kamera ke barcode...';
 
+    // Cari dulu semua kamera yang ada di HP
     const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
     let deviceId = devices[0]?.deviceId;
 
+    // Utamain kamera BELAKANG
     const backCam = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
     if(backCam) deviceId = backCam.deviceId;
 
@@ -911,9 +841,9 @@ $('#photoInput').onchange=async e=>{
  toast('AI sedang mengidentifikasi foto...');
  try {
   const d=await imageAI(file,'identify');
-  const words=(d.result?.keywords||[]).slice(0,5);
+  const words=d.result.keywords||[];
   $('#search').value=[
-   d.result?.name, ...words
+   d.result.name,d.result.brand,d.result.color,...words
   ].filter(Boolean).join(' ');
   await loadProducts(true);
   toast('Identifikasi selesai.');
@@ -974,8 +904,7 @@ $('#login').onclick=async()=>{
   toast('Mode Admin aktif.');
  }catch(e){toast(e.message)}
 };
-
-// FORM GANTI PIN ADMIN
+  // FORM GANTI PIN ADMIN
 $('#changePinForm').onsubmit = async (e) => {
   e.preventDefault();
 
@@ -1004,6 +933,7 @@ $('#changePinForm').onsubmit = async (e) => {
 
     msg.textContent = d.message || 'PIN berhasil diganti. Silakan login kembali.';
 
+    // Reset sesi admin karena token lama tidak berlaku
     token = '';
     isAdmin = false;
 
@@ -1017,7 +947,6 @@ $('#changePinForm').onsubmit = async (e) => {
     msg.textContent = e.message || 'Gagal mengganti PIN.';
   }
 };
-
 $('#menuDashboard').onclick=()=>{
  navigate('stock');
 };
@@ -1029,7 +958,6 @@ $('#menuStock').onclick=()=>{
 $('#menuAdd').onclick=()=>{
  navigate('add');
 };
-
 $('#logout').onclick=()=>{
  token='';
  isAdmin=false;
@@ -1119,6 +1047,8 @@ $('#excel').onchange=async e=>{
  <pre>${escapeHTML(JSON.stringify(imported.slice(0,5),null,2))}</pre>`;
 };
 
+      
+
 $('#import').onclick = async () => {
   if (!imported.length) {
     return toast('Pilih file terlebih dahulu.');
@@ -1157,6 +1087,7 @@ $('#import').onclick = async () => {
       let sukses = false;
       let errorTerakhir = '';
 
+      // Coba kirim satu batch
       for (let retry = 1; retry <= maxRetry; retry++) {
         try {
           await kirim(batch);
@@ -1178,6 +1109,7 @@ $('#import').onclick = async () => {
       if (sukses) {
         berhasil += batch.length;
       } else {
+        // Jika batch gagal, coba setiap barang sendiri
         for (let j = 0; j < batch.length; j++) {
           const produk = batch[j];
           let itemSukses = false;
@@ -1225,6 +1157,7 @@ $('#import').onclick = async () => {
       await tunggu(150);
     }
 
+    // Sisakan hanya barang yang benar-benar gagal
     imported = gagalItems.map(item => item.produk);
 
     if (gagalItems.length === 0) {
@@ -1253,6 +1186,8 @@ $('#import').onclick = async () => {
     $('#import').disabled = false;
   }
 };
+
+
 
 function download(data,name) {
  const a=document.createElement('a');
@@ -1286,7 +1221,7 @@ $('#printLabels').onclick=()=>{
 
  const win=window.open('','_blank');
  win.document.write('<html><body>'+html+
- '<script src="[https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js](https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js)"><\/script>'+
+ '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
  '<script>window.onload=()=>{'+
  products.map(p=>`JsBarcode('#barcode-${p.id}','${String(p.barcode||p.sku).replace(/['\\]/g,'')}');`).join('')+
  'window.print()}<\/script></body></html>');
@@ -1353,8 +1288,7 @@ async function initialize() {
 
 initialize();
 </script>
-
-<!-- === TAMBAHAN CARA A: UPLOAD + SLIDER + CARI PAKE FOTO - JANGAN HAPUS YANG LAMA === -->
+ <!-- === TAMBAHAN CARA A: UPLOAD + SLIDER + CARI PAKE FOTO - JANGAN HAPUS YANG LAMA === -->
 <input type="file" id="inputUploadFoto" accept="image/*" multiple style="display:none">
 <input type="file" id="inputCariFoto" accept="image/*" style="display:none">
 <div id="modalFoto" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
@@ -1388,7 +1322,6 @@ function tutupModalCariFoto() {
   document.getElementById('modalCariFoto').style.display = 'none';
 }
 let _idAktif = null, _listFotoAktif = [], _idxFoto = 0, _namaAktif = "";
-
 const KAMUS_SINONIM = {
   botol: ['bottle', 'flask', 'tumbler', 'thermos', 'termos', 'botol minum', 'water bottle', 'air'],
   termos: ['thermos', 'flask', 'vacuum flask', 'bottle', 'botol', 'tumbler', 'air panas'],
@@ -1437,7 +1370,6 @@ const KAMUS_SINONIM = {
   sapu: ['broom', 'sweeper', 'sapu lantai', 'sapu lidi'],
   pel: ['mop', 'floor mop', 'alat pel', 'kain pel']
 };
-
 const hitungSkorProdukAI = (produk, kataKunci) => {
   const normalisasi = (teks) =>
     String(teks || '')
@@ -1627,6 +1559,47 @@ if (_fotoGedeEl) {
   });
 }
 
+async function kompresFotoUntukAI(file) {
+  if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+    throw new Error('Gunakan foto JPG, PNG, atau WebP.');
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const ukuran = [1600, 1400, 1200, 1000, 800, 640];
+
+  for (const maxSize of ukuran) {
+    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise(resolve => {
+      canvas.toBlob(resolve, 'image/jpeg', 0.80);
+    });
+
+    if (!blob) continue;
+
+    if (blob.size <= 2_500_000) {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
+        reader.readAsDataURL(blob);
+      });
+      bitmap.close();
+      return dataUrl;
+    }
+  }
+
+  bitmap.close();
+  throw new Error('Ukuran foto masih terlalu besar. Coba foto lain.');
+}
+
 function renderPreviewFotoUpload(src, statusHtml) {
   return `
     <div style="display:flex;gap:12px;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:10px;margin-bottom:12px">
@@ -1670,6 +1643,7 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
   const file = e.target.files?.[0];
   if (!file) return;
 
+  // Tutup / sembunyikan modal detail barang lama agar foto lama tidak terlihat di belakang
   const detailModal = document.getElementById('detail');
   if (detailModal) detailModal.hidden = true;
 
@@ -1679,8 +1653,6 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
   box.style.display = 'block';
 
   const objectPreviewUrl = URL.createObjectURL(file);
-  let image = null;
-
   box.innerHTML = renderPreviewFotoUpload(
     objectPreviewUrl,
     '⏳ Menyiapkan & mengompres foto...'
@@ -1695,8 +1667,10 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
+    let image = null;
     let berhasilKompres = false;
-    const ukuran = [1200, 1000, 800, 640];
+
+    const ukuran = [1600, 1400, 1200, 1000, 800, 640];
 
     for (const maxSize of ukuran) {
       const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
@@ -1731,25 +1705,21 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       throw new Error('Ukuran foto masih terlalu besar. Coba foto lain.');
     }
 
+    // Ganti preview ke data URL yang sudah dikompres
     box.innerHTML = renderPreviewFotoUpload(
       image,
       '⏳ AI sedang mengenali barang pada foto...'
     );
 
-    const daftarProduk = Array.isArray(products)
+    const daftarProduk = typeof products !== 'undefined'
       ? products
-      : (Array.isArray(window.products) ? window.products : []);
+      : (window.products || []);
 
     if (!daftarProduk.length) {
-      box.innerHTML =
-        renderPreviewFotoUpload(image, 'Tidak ada produk di database.') +
-        `<div style="padding:10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:13px">
-          Tidak ada produk yang cocok.
-        </div>`;
-      return;
+      throw new Error('Data barang belum dimuat. Coba refresh halaman.');
     }
 
-    // 1. AI mengenali jenis barang & maksimal 5 kata kunci
+    // 1. AI mengenali foto
     const identifikasi = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1766,41 +1736,51 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     }
 
     const info = hasilIdentifikasi.result || {};
-    const kataKunciList = [
+    const kataKunci = [
       info.name,
+      info.brand,
+      info.color,
+      info.shape,
       info.category,
-      ...(Array.isArray(info.keywords) ? info.keywords.slice(0, 5) : [])
-    ].filter(Boolean);
-
-    const labelBacaAI = kataKunciList.slice(0, 6).join(', ') || 'Barang';
+      info.description,
+      ...(Array.isArray(info.keywords) ? info.keywords : [])
+    ].filter(Boolean).join(' ');
 
     box.innerHTML = renderPreviewFotoUpload(
       image,
-      `🔎 AI membaca: <b>${escapeHTML(labelBacaAI)}</b><br>⏳ Mencocokkan dengan database barang...`
+      `🔎 AI membaca: <b>${escapeHTML(kataKunci || 'Barang')}</b><br>⏳ Mencocokkan dengan database barang...`
     );
 
-    // 2. Urutkan kandidat dengan skorProduk (jangan buang skor = 0; ambil minimal 10 teratas)
-    const skorProduk = (produk) => hitungSkorProdukAI(produk, kataKunciList);
+    // 2. Hitung kemiripan kata kunci dengan produk di database
+    const kata = kataKunci
+      .toLowerCase()
+      .split(/[\s,./-]+/)
+      .filter(k => k.length >= 2);
 
-    const kandidatTerurut = [...daftarProduk]
-      .map((item) => ({
-        item,
-        skor: skorProduk(item)
-      }))
-      .sort((a, b) => b.skor - a.skor);
+    const skorProduk = (produk) =>
+  hitungSkorProdukAI(
+    produk,
+    typeof kataKunciAI !== 'undefined' ? kataKunciAI : typeof kategoriAI !== 'undefined' ? kategoriAI : ''
+  );
 
-    const kandidat = kandidatTerurut.slice(0, 10).map((entry) => entry.item);
+const kandidatTerurut = [...(Array.isArray(products) ? products : [])]
+  .map((item) => ({
+    item,
+    skor: skorProduk(item)
+  }))
+  .filter((entry) => entry.skor > 0)
+  .sort((a, b) => b.skor - a.skor);
 
-    if (!kandidat.length) {
-      box.innerHTML =
-        renderPreviewFotoUpload(image, `AI membaca: <b>${escapeHTML(labelBacaAI)}</b>`) +
-        `<div style="padding:10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:13px">
-          Tidak ada produk yang cocok.
-        </div>`;
-      return;
-    }
+let alternatif = kandidatTerurut.map((entry) => entry.item);
 
-    // 3. AI memverifikasi jenis barang pada kandidat teratas
+if (!alternatif.length) {
+  alternatif = [];
+}
+let kandidat = alternatif;
+if (!kandidat.length) {
+  return [];
+}
+    // 3. AI membandingkan foto dengan kandidat
     const verifikasi = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1811,7 +1791,8 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
         candidates: kandidat.map(p => ({
           sku: String(p.sku || ''),
           name: String(p.name || ''),
-          category: String(p.category || '')
+          category: String(p.category || ''),
+          description: String(p.description || '')
         }))
       })
     });
@@ -1821,42 +1802,54 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       throw new Error(hasilVerifikasi.error || 'AI gagal membandingkan barang.');
     }
 
-    const matches = Array.isArray(hasilVerifikasi.result?.matches)
-      ? hasilVerifikasi.result.matches
-      : [];
-
+    const matches = hasilVerifikasi.result?.matches || [];
     const hasil = matches
-      .filter(m => Number(m.similarity) >= 90)
+      .filter(m => Number(m.similarity) > 0)
       .sort((a, b) => Number(b.similarity) - Number(a.similarity))
       .map(m => {
         const p = kandidat.find(x => String(x.sku) === String(m.sku));
-        return p ? { p, similarity: Number(m.similarity) } : null;
+        return p ? { p, similarity: Number(m.similarity), reason: m.reason } : null;
       })
       .filter(Boolean);
 
+    // Selalu tampilkan preview foto upload-an di atas
     const headerHtml = renderPreviewFotoUpload(
       image,
-      `AI membaca: <b>${escapeHTML(labelBacaAI)}</b>`
+      `AI membaca: <b>${escapeHTML(kataKunci || 'Barang')}</b>`
     );
 
     if (!hasil.length) {
+      const alternatif = rekomendasiKataKunci.length
+        ? rekomendasiKataKunci
+        : skorProduk.slice(0, 4);
+
       box.innerHTML =
         headerHtml +
-        `<div style="padding:10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:13px">
-          Tidak ada produk dengan jenis barang yang sama ditemukan.
-        </div>`;
+        `<div style="padding:10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:13px;margin-bottom:10px">
+          <b>Barang persis belum ditemukan di hasil verifikasi AI.</b><br>
+          Berikut barang paling mendekati berdasarkan kata kunci AI:
+        </div>` +
+        alternatif
+          .map(({ p, skor }) =>
+            renderKartuProdukAI(
+              p,
+              `<div style="font-size:12px;color:#047857;font-weight:600;margin-top:2px">Relevansi kata kunci: ${escapeHTML(skor)}</div>`
+            )
+          )
+          .join('');
       return;
     }
 
     box.innerHTML =
       headerHtml +
-      `<div style="font-weight:700;font-size:14px;margin-bottom:4px">Barang cocok ditemukan (${Math.min(hasil.length, 5)})</div>` +
+      `<div style="font-weight:700;font-size:14px;margin-bottom:4px">Barang mirip ditemukan (${Math.min(hasil.length, 5)})</div>` +
       hasil
         .slice(0, 5)
         .map(item =>
           renderKartuProdukAI(
             item.p,
-            `<div style="font-size:12px;color:#047857;font-weight:700;margin-top:2px">Kecocokan jenis: ${escapeHTML(item.similarity)}%</div>`
+            `<div style="font-size:12px;color:#047857;font-weight:700;margin-top:2px">Kecocokan AI: ${escapeHTML(item.similarity)}%</div>` +
+            (item.reason ? `<div style="font-size:11px;color:#64748b;margin-top:2px">${escapeHTML(item.reason)}</div>` : '')
           )
         )
         .join('');
