@@ -43,10 +43,24 @@ JSON: {"description":"","category":"","synonyms":[]}.`,
 Kalimat: ${query || ''}.
 JSON: {"keywords":[],"category":null}.`,
 
-      verify: `Bandingkan foto barang dengan kandidat database berdasarkan jenis barang, warna, bentuk, dan ciri visual.
+      verify: `Kamu adalah pencari barang gudang. Tugasmu HANYA mencocokkan FOTO dengan DAFTAR PRODUK.
+
+FOTO: Lihat foto ini, tentukan 1 jenis barangnya saja. Contoh: "botol minum", "vacuum cleaner", "ball pen".
+
+DAFTAR PRODUK (candidates):
 Kandidat: ${JSON.stringify(candidates || [])}.
-JSON: {"matches":[{"sku":"","similarity":0,"reason":""}]}.
-Berikan similarity (0-100) untuk kandidat yang memiliki kemiripan visual wajar.`
+
+ATURAN WAJIB:
+1. JANGAN peduli warna, motif, ukuran, dan bahan dulu. Yang penting JENIS BARANGNYA SAMA.
+2. SINONIM itu SAMA. botol = tumbler = flask = termos = botol minum. vacuum = vacuum cleaner = penyedot debu. ball pen = pulpen = pena.
+3. Jika jenis barangnya beda, similarity = 0. JANGAN dipaksakan.
+4. Jika jenis barangnya sama, similarity = 90-100, walaupun warna / motif beda.
+5. Balas HANYA JSON valid, tanpa penjelasan lain.
+
+Format balasan:
+{"jenis_barang": "botol minum", "matches": [{"sku": "...", "similarity": 95}]}
+Jika TIDAK ADA yang jenisnya sama, balas: {"jenis_barang": "...", "matches": []}
+`,
     };
 
     if (!prompts[action]) {
