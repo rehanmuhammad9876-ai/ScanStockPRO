@@ -1686,6 +1686,46 @@ async function panggilGeminiAman(payload, timeoutMs = 25000) {
     clearTimeout(timer);
   }
 }
+async function cariKandidatDariDatabase(kataKunciList = [], fallbackProduk = []) {
+  const gabungan = Array.isArray(fallbackProduk) ? [...fallbackProduk] : [];
+  const kuncis = (Array.isArray(kataKunciList) ? kataKunciList : [kataKunciList])
+    .map(k => String(k || '').trim())
+    .filter(k => k.length >= 2)
+    .slice(0, 3);
+
+  // Coba ambil kandidat langsung dari API produk jika tersedia
+  for (const kata of kuncis) {
+    try {
+      const url = `/api/products?q=${encodeURIComponent(kata)}&limit=30`;
+      const resp = await fetch(url);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
+      gabungan.push(...items);
+    } catch (_) {
+      // Abaikan error per kata kunci agar tetap lanjut ke fallback lokal
+    }
+  }
+
+  // Hilangkan duplikat berdasarkan sku, id, atau nama
+  const unik = [];
+  const dilihat = new Set();
+  for (const item of gabungan) {
+    if (!item || typeof item !== 'object') continue;
+    const kunciUnik = String(item.sku ?? item.id ?? item.nama ?? '').trim().toLowerCase();
+    if (!kunciUnik || dilihat.has(kunciUnik)) continue;
+    dilihat.add(kunciUnik);
+    unik.push(item);
+  }
+
+  return unik;
+}
 
 document.getElementById('inputCariFoto').addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
@@ -1785,6 +1825,10 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       info.description,
       ...(Array.isArray(info.keywords) ? info.keywords : [])
     ].filter(Boolean).join(' ');
+const daftarKandidatSumber = await cariKandidatDariDatabase(
+  kataKunci.split(/\s+/).filter(Boolean),
+  daftarProduk
+);
 
     box.innerHTML = renderPreviewFotoUpload(
       image,
@@ -1799,7 +1843,7 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
 
     const skorProduk = (produk) => hitungSkorProdukAI(produk, kata.length ? kata : kataKunci);
 
-    const kandidatTerurut = [...daftarProduk]
+    const kandidatTerurut =[...daftarKandidatSumber]
       .map((item) => ({
         p: item,
         skor: skorProduk(item)
