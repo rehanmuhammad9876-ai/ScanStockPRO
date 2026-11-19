@@ -1323,7 +1323,7 @@ function tutupModalCariFoto() {
 }
 let _idAktif = null, _listFotoAktif = [], _idxFoto = 0, _namaAktif = "";
 const KAMUS_SINONIM = {
-  botol: ['bottle', 'flask', 'tumbler', 'thermos', 'termos', 'botol minum', 'water bottle', 'air'],
+  botol: ['bottle', 'flask', 'tumbler', 'thermos', 'termos', 'botol minum', 'water bottle', 'air', 'vacuum' ],
   termos: ['thermos', 'flask', 'vacuum flask', 'bottle', 'botol', 'tumbler', 'air panas'],
   tumbler: ['bottle', 'flask', 'thermos', 'termos', 'cup', 'mug', 'botol minum'],
   flask: ['botol', 'termos', 'thermos', 'vacuum flask', 'bottle', 'tumbler'],
@@ -1369,6 +1369,47 @@ const KAMUS_SINONIM = {
   ember: ['bucket', 'pail', 'timba', 'ember plastik'],
   sapu: ['broom', 'sweeper', 'sapu lantai', 'sapu lidi'],
   pel: ['mop', 'floor mop', 'alat pel', 'kain pel']
+    mainan: ['toy', 'toys', 'anak', 'kids', 'edukasi', 'play', 'mobil', 'car', 'boneka', 'doll', 'puzzle', 'block'],
+  mobil: ['car', 'mobilan', 'truck', 'truk', 'mobil mainan', 'toy car', 'vehicle', 'kids car'],
+  boneka: ['doll', 'plush', 'plushie', 'stuffed', 'mainan anak', 'kids'],
+  puzzle: ['jigsaw', 'block', 'blocks', 'building block', 'mainan edukasi', 'kids'],
+  kunci: ['key', 'keychain', 'gantungan kunci', 'lock', 'padlock', 'gembok'],
+  gembok: ['padlock', 'lock', 'kunci', 'security lock', 'kunci pengaman'],
+  lampu: ['lamp', 'light', 'led', 'bulb', 'bohlam', 'senter', 'flashlight', 'torch'],
+  senter: ['flashlight', 'torch', 'lampu', 'led', 'lampu senter'],
+  baterai: ['battery', 'batteries', 'cell', 'aaa', 'aa', 'alkaline', 'lithium'],
+  kabel: ['cable', 'wire', 'charger', 'adapter', 'usb', 'extension', 'stop kontak'],
+  colokan: ['plug', 'socket', 'adapter', 'stop kontak', 'extension', 'power strip'],
+  kaca: ['glass', 'mirror', 'cermin', 'kacamata', 'glasses', 'sunglasses'],
+  cermin: ['mirror', 'kaca', 'make up mirror', 'cermin rias'],
+  kacamata: ['glasses', 'sunglasses', 'spectacles', 'goggles', 'kaca mata'],
+  jam: ['clock', 'watch', 'wall clock', 'jam dinding', 'jam tangan', 'timer'],
+  kantong: ['bag', 'pouch', 'zipper bag', 'trash bag', 'kantong sampah', 'plastik', 'plastic bag'],
+  plastik: ['plastic', 'poly', 'container', 'storage', 'kotak plastik', 'wadah'],
+  kotak: ['box', 'container', 'storage', 'case', 'organizer', 'wadah', 'tempat'],
+  wadah: ['container', 'box', 'storage', 'jar', 'canister', 'toples', 'tempat'],
+  toples: ['jar', 'canister', 'container', 'food container', 'wadah', 'kotak makan'],
+  alat: ['tool', 'tools', 'set', 'kit', 'hardware', 'perlengkapan'],
+  obeng: ['screwdriver', 'wrench', 'plier', 'pliers', 'tang', 'tool'],
+  tang: ['pliers', 'plier', 'cutter', 'pincers', 'tang potong', 'tang kombinasi'],
+  rak: ['rack', 'shelf', 'shelves', 'stand', 'holder', 'organizer', 'gantungan'],
+  gantungan: ['hanger', 'hook', 'hooks', 'rack', 'holder', 'cantolan'],
+  lap: ['cloth', 'rag', 'towel', 'microfiber', 'kain lap', 'kain pembersih'],
+  pembersih: ['cleaner', 'cleaning', 'brush', 'sponge', 'wipe', 'wipes', 'tisu'],
+  tisu: ['tissue', 'tissues', 'wet wipes', 'wipes', 'napkin', 'kertas tisu'],
+  kaos: ['t-shirt', 'tshirt', 'shirt', 'top', 'kaos kaki', 'socks', 'sock'],
+  kaos_kaki: ['socks', 'sock', 'kaos kaki', 'stocking'],
+  sandal: ['slippers', 'slipper', 'sandals', 'flip flops', 'sendal'],
+  topi: ['hat', 'cap', 'beanie', 'visor'],
+  korek: ['lighter', 'gas lighter', 'match', 'matches', 'korek api']
+  seulgi: ['boneka', 'bantal', 'bantal kepala', 'kucing', 'doll', 'plush', 'plushie', 'pillow', 'cat', 'mainan', 'toy', 'mainan anak', 'kids'],
+  bantal: ['pillow', 'cushion', 'bantal kepala', 'bantal leher', 'boneka', 'plush'],
+  kucing: ['cat', 'kitten', 'anak kucing', 'boneka kucing', 'plush'],
+  blocks: ['block', 'building block', 'mainan', 'edukasi', 'toy', 'kids', 'mobil', 'car'],
+  pull: ['pull along', 'mainan tarik', 'mobil', 'car', 'toy', 'mainan'],
+  mainan: ['toy', 'toys', 'anak', 'kids', 'edukasi', 'play', 'mobil', 'car', 'boneka', 'doll', 'puzzle', 'block', 'blocks'],
+  mobil: ['car', 'mobilan', 'truck', 'truk', 'mobil mainan', 'toy car', 'vehicle', 'kids car', 'blocks', 'pull'],
+
 };
 const hitungSkorProdukAI = (produk, kataKunci) => {
   const normalisasi = (teks) =>
