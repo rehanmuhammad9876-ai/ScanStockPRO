@@ -555,7 +555,7 @@ if (req.method === 'DELETE') {
     success: true
   });
 }
-    // GET: membaca daftar barang
+        // GET: membaca daftar barang
     if (req.method === 'GET') {
       const q = String(req.query.q || '')
         .replace(/[^\p{L}\p{N}\s-]/gu, '')
@@ -573,7 +573,7 @@ if (req.method === 'DELETE') {
 
       const limitNum = Number(req.query.limit);
       const limit = Number.isInteger(limitNum) && limitNum > 0
-        ? Math.min(limitNum, 30)
+        ? Math.min(limitNum, 200)
         : 30;
 
       let query = db
@@ -584,7 +584,7 @@ if (req.method === 'DELETE') {
 
       if (q) {
         query = query.or(
-          `name.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%`
+          `name.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%,description.ilike.%${q}%`
         );
       }
 
@@ -617,6 +617,7 @@ if (req.method === 'DELETE') {
         products: data || []
       });
     }
+
     return json(res, 405, {
       error: 'Metode tidak didukung.'
     });
