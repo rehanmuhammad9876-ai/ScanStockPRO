@@ -1751,35 +1751,32 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       `🔎 AI membaca: <b>${escapeHTML(kataKunci || 'Barang')}</b><br>⏳ Mencocokkan dengan database barang...`
     );
 
-    // 2. Hitung kemiripan kata kunci dengan produk di database
+            // 2. Hitung kemiripan kata kunci dengan produk di database
     const kata = kataKunci
       .toLowerCase()
       .split(/[\s,./-]+/)
       .filter(k => k.length >= 2);
 
-    const skorProduk = (produk) =>
-  hitungSkorProdukAI(
-    produk,
-    typeof kataKunciAI !== 'undefined' ? kataKunciAI : typeof kategoriAI !== 'undefined' ? kategoriAI : ''
-  );
+    const skorProduk = (produk) => hitungSkorProdukAI(produk, kata.length ? kata : kataKunci);
 
-const kandidatTerurut = [...(Array.isArray(products) ? products : [])]
-  .map((item) => ({
-    item,
-    skor: skorProduk(item)
-  }))
-  .filter((entry) => entry.skor > 0)
-  .sort((a, b) => b.skor - a.skor);
+    const kandidatTerurut = [...daftarProduk]
+      .map((item) => ({
+        p: item,
+        skor: skorProduk(item)
+      }))
+      .sort((a, b) => b.skor - a.skor);
 
-let alternatif = kandidatTerurut.map((entry) => entry.item);
+    const kandidat = kandidatTerurut.slice(0, 10).map((entry) => entry.p);
 
-if (!alternatif.length) {
-  alternatif = [];
-}
-let kandidat = alternatif;
-if (!kandidat.length) {
-  return [];
-}
+    if (!kandidat.length) {
+      box.innerHTML =
+        renderPreviewFotoUpload(image, `AI membaca: <b>${escapeHTML(kataKunci || 'Barang')}</b>`) +
+        `<div style="padding:10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:13px">
+          Tidak ada produk yang cocok.
+        </div>`;
+      return;
+    }
+
     // 3. AI membandingkan foto dengan kandidat
     const verifikasi = await fetch('/api/gemini', {
       method: 'POST',
@@ -1802,12 +1799,15 @@ if (!kandidat.length) {
       throw new Error(hasilVerifikasi.error || 'AI gagal membandingkan barang.');
     }
 
-    const matches = hasilVerifikasi.result?.matches || [];
+    const matches = Array.isArray(hasilVerifikasi.result?.matches)
+      ? hasilVerifikasi.result.matches
+      : [];
+
     const hasil = matches
       .filter(m => Number(m.similarity) > 0)
       .sort((a, b) => Number(b.similarity) - Number(a.similarity))
       .map(m => {
-        const p = kandidat.find(x => String(x.sku) === String(m.sku));
+        const p = kandidat.find(x => String(x.sku).trim() === String(m.sku).trim());
         return p ? { p, similarity: Number(m.similarity), reason: m.reason } : null;
       })
       .filter(Boolean);
@@ -1819,15 +1819,15 @@ if (!kandidat.length) {
     );
 
     if (!hasil.length) {
-      const alternatif = rekomendasiKataKunci.length
-        ? rekomendasiKataKunci
-        : skorProduk.slice(0, 4);
+      const alternatif = kandidatTerurut
+        .filter(entry => entry.skor > 0)
+        .slice(0, 4);
 
       box.innerHTML =
         headerHtml +
         `<div style="padding:10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:13px;margin-bottom:10px">
           <b>Barang persis belum ditemukan di hasil verifikasi AI.</b><br>
-          Berikut barang paling mendekati berdasarkan kata kunci AI:
+          ${alternatif.length ? 'Berikut barang paling mendekati berdasarkan kata kunci AI:' : 'Tidak ada produk yang cocok.'}
         </div>` +
         alternatif
           .map(({ p, skor }) =>
@@ -1853,6 +1853,7 @@ if (!kandidat.length) {
           )
         )
         .join('');
+
 
   } catch (error) {
     console.error('CARI FOTO:', error);
