@@ -93,7 +93,7 @@ Jika tidak ada yang jenisnya sama, balas:
       });
     }
 
-    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(MODEL)}:generateContent`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
 
     const response = await fetch(endpoint, {
       method: 'POST',
