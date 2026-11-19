@@ -1758,36 +1758,26 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       .split(/[\s,./-]+/)
       .filter(k => k.length >= 2);
 
-    const skorProduk = daftarProduk
-      .map(p => {
-        const teks = [
-          p.name, p.sku, p.barcode, p.category, p.location, p.description,
-          ...(Array.isArray(p.synonyms) ? p.synonyms : [p.synonyms || ''])
-        ].join(' ').toLowerCase();
+    const skorProduk = (produk) =>
+  hitungSkorProdukAI(
+    produk,
+    typeof kataKunciAI !== 'undefined' ? kataKunciAI : typeof kategoriAI !== 'undefined' ? kategoriAI : ''
+  );
 
-        let skor = 0;
-        kata.forEach(k => {
-          if (teks.includes(k)) skor += 2;
-        });
+const kandidatTerurut = [...(Array.isArray(products) ? products : [])]
+  .map((item) => ({
+    item,
+    skor: skorProduk(item)
+  }))
+  .filter((entry) => entry.skor > 0)
+  .sort((a, b) => b.skor - a.skor);
 
-        if (info.color && teks.includes(String(info.color).toLowerCase())) {
-          skor += 3;
-        }
-        if (info.category && String(p.category || '').toLowerCase().includes(String(info.category).toLowerCase())) {
-          skor += 3;
-        }
+let alternatif = kandidatTerurut.map((entry) => entry.item);
 
-        return { p, skor };
-      })
-      .sort((a, b) => b.skor - a.skor);
-
-    const rekomendasiKataKunci = skorProduk
-      .filter(x => x.skor > 0)
-      .slice(0, 5);
-
-    let kandidat = rekomendasiKataKunci.length
-      ? skorProduk.filter(x => x.skor > 0).slice(0, 30).map(x => x.p)
-      : daftarProduk.slice(0, 30);
+if (!alternatif.length) {
+  alternatif = [];
+}
+let kandidat = alternatif;
 
     // 3. AI membandingkan foto dengan kandidat
     const verifikasi = await fetch('/api/gemini', {
