@@ -1638,6 +1638,40 @@ function renderKartuProdukAI(p, extraHtml = '') {
     </div>
   `;
 }
+async function panggilGeminiAman(payload, timeoutMs = 25000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    const rawText = await res.text();
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      throw new Error(`Respons AI tidak valid (HTTP ${res.status}).`);
+    }
+
+    if (!res.ok) {
+      throw new Error(data.error || `Permintaan AI gagal (HTTP ${res.status}).`);
+    }
+
+    return data;
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Waktu tunggu AI habis (timeout). Coba lagi.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 document.getElementById('inputCariFoto').addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
@@ -1719,21 +1753,13 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       throw new Error('Data barang belum dimuat. Coba refresh halaman.');
     }
 
-    // 1. AI mengenali foto
-    const identifikasi = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'identify',
-        image,
-        mimeType: 'image/jpeg'
-      })
+        // 1. AI mengenali foto
+    const hasilIdentifikasi = await panggilGeminiAman({
+      action: 'identify',
+      image,
+      mimeType: 'image/jpeg'
     });
 
-    const hasilIdentifikasi = await identifikasi.json();
-    if (!identifikasi.ok) {
-      throw new Error(hasilIdentifikasi.error || 'AI gagal mengenali foto.');
-    }
 
     const info = hasilIdentifikasi.result || {};
     const kataKunci = [
@@ -1778,26 +1804,18 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     }
 
     // 3. AI membandingkan foto dengan kandidat
-    const verifikasi = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'verify',
-        image,
-        mimeType: 'image/jpeg',
-        candidates: kandidat.map(p => ({
-          sku: String(p.sku || ''),
-          name: String(p.name || ''),
-          category: String(p.category || ''),
-          description: String(p.description || '')
-        }))
-      })
-    });
+const hasilVerifikasi = await panggilGeminiAman({
+  action: 'verify',
+  image,
+  mimeType: 'image/jpeg',
+  candidates: kandidat.map(p => ({
+    sku: String(p.sku || ''),
+    name: String(p.name || ''),
+    category: String(p.category || ''),
+    description: String(p.description || '')
+  }))
+});
 
-    const hasilVerifikasi = await verifikasi.json();
-    if (!verifikasi.ok) {
-      throw new Error(hasilVerifikasi.error || 'AI gagal membandingkan barang.');
-    }
 
     const matches = Array.isArray(hasilVerifikasi.result?.matches)
       ? hasilVerifikasi.result.matches
