@@ -718,6 +718,48 @@ document.getElementById('inputUploadFoto')?.addEventListener('change', async (e)
   $('#btnCariFotoDetail')?.addEventListener('click', () => {
   document.getElementById('inputSimpanFotoDetail').click();
 });
+
+document.getElementById('inputSimpanFotoDetail').onchange = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  e.target.value = '';
+
+  try {
+    const image = await kompresFotoUntukAI(file);
+
+    const upload = await api('/api/upload-foto', {
+      method: 'POST',
+      body: JSON.stringify({
+        image,
+        sku: p.sku,
+        id: p.id
+      })
+    });
+
+    const fotoLama = pecahFoto(p);
+    const fotoBaru = [...fotoLama, upload.url];
+
+    await api('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'upsert',
+        product: {
+          ...p,
+          image_url: fotoBaru.join(',')
+        }
+      })
+    });
+
+    p.image_url = fotoBaru.join(',');
+    toast('Foto berhasil disimpan.');
+    loadProducts(true);
+    showDetail(p.id);
+
+  } catch (err) {
+    toast(err.message || 'Gagal menyimpan foto.');
+  }
+};
   $('#deleteProduct')?.addEventListener('click', async () => {
     if (!confirm('Hapus barang ini?')) return;
     try {
