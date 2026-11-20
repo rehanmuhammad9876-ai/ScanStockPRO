@@ -668,42 +668,51 @@ document.getElementById('inputUploadFoto')?.addEventListener('change', async (e)
   const f = files[0];
   e.target.value = '';
 
-  const nama = document.getElementById('detailNamaBarang')?.textContent?.trim();
-  const list = (typeof products !== 'undefined' ? products : (window.products || []));
-  const barang = list.find(p => (p.name || p.nama) === nama);
-  if (!barang?.id) { toast('Buka dulu detail barangnya.'); return; }
-
-  // Kompres sekecil mungkin biar muat 5000 karakter server
-  const image_url = await new Promise(res => {
-    const img = new Image();
-    const url = URL.createObjectURL(f);
-    img.onload = () => {
-      const max = 250;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const c = document.createElement('canvas');
-      c.width = img.width * scale; c.height = img.height * scale;
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      res(c.toDataURL('image/jpeg', 0.5));
-    };
-    img.src = url;
-  });
-
-  if (image_url.length > 5000) {
-    toast('Foto masih kegedean buat server. Coba foto yang lebih terang / deket.');
-    return;
-  }
-
   try {
-    const r = await api('/api/products', {
+    // Ambil SKU + Nama langsung dari detail yang lagi kebuka
+    const detailEl = document.getElementById('detail') || document.body;
+    const teks = detailEl.innerText || '';
+    const skuMatch = teks.match(/SKU:\s*([^\n]+)/);
+    const sku = skuMatch ? skuMatch[1].trim() : '';
+    const namaEl = document.getElementById('detailNamaBarang');
+    const nama = namaEl ? namaEl.textContent.trim() : '';
+
+    if (!sku && !nama) throw new Error('Detail tidak kebaca');
+
+    // Tanya server langsung, jangan pake variabel lokal
+    const r = await api('/api/products?limit=200&q=' + encodeURIComponent(sku || nama));
+    const list = r.products || r.data || [];
+    const barang = list.find(p => String(p.sku) === sku) || list.find(p => (p.name || '') === nama) || list[0];
+    if (!barang?.id) throw new Error('Barang tidak ketemu di server (SKU: ' + sku + ')');
+
+    // Kompres kecil biar muat limit 5000 server
+    const image_url = await new Promise(res => {
+      const img = new Image();
+      const url = URL.createObjectURL(f);
+      img.onload = () => {
+        const max = 250;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = img.width * scale; c.height = img.height * scale;
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        res(c.toDataURL('image/jpeg', 0.5));
+      };
+      img.src = url;
+    });
+
+    if (image_url.length > 5000) { toast('Foto masih kegedean, coba foto lebih deket / terang.'); return; }
+
+    const save = await api('/api/products', {
       method: 'POST',
       body: JSON.stringify({ action: 'update-photos', id: barang.id, image_url })
     });
-    if (!r || r.error) throw new Error(r?.error || 'Gagal simpan');
+    if (!save || save.error) throw new Error(save?.error || 'Server nolak');
+
     toast('Foto berhasil ditambahkan.');
     if (typeof bukaDetailProduk === 'function') bukaDetailProduk(barang.id);
   } catch (err) {
-    toast('GAGAL simpan: ' + (err.message || err));
+    toast('GAGAL: ' + (err.message || err));
   }
 });
   $('#btnCariFotoDetail')?.addEventListener('click', () => {
