@@ -167,12 +167,12 @@ if (req.method === 'POST' && action === 'login') {
   if (resetError) throw resetError;
 
   return json(res, 200, {
-    token: adminToken()
+    token: await adminToken()
   });
 }
     // GANTI PIN ADMIN
 if (req.method === 'POST' && action === 'change-pin') {
-  if (!isAdmin(req)) {
+  if (!(await isAdmin(req))) {
     return json(res, 403, {
       error: 'Akses admin diperlukan.'
     });
@@ -251,7 +251,7 @@ if (req.method === 'POST' && action === 'change-pin') {
 // ==================================
 
 if (req.method === 'POST' && action === 'update-photos') {
-  if (!isAdmin(req)) {
+if (!(await isAdmin(req))) {
     return json(res, 401, {
       error: 'Akses admin diperlukan.'
     });
@@ -298,7 +298,7 @@ if (req.method === 'POST' && action === 'update-photos') {
 }
     // TAMBAH / UPDATE PRODUK — VALIDASI INPUT
 if (req.method === 'POST' && action === 'upsert') {
-    if (!isAdmin(req)) {
+    if (!(await isAdmin(req))) {
     return json(res, 401, {
       error: 'Akses admin diperlukan.'
     });
@@ -482,7 +482,7 @@ if (req.method === 'POST' && action === 'upsert') {
     // ==================================
 
     if (req.method === 'PATCH' && action === 'stock') {
-      if (!isAdmin(req)) {
+      if (!(await isAdmin(req))) {
   return json(res, 401, {
     error: 'Akses admin diperlukan.'
   });
@@ -530,7 +530,7 @@ if (req.method === 'POST' && action === 'upsert') {
     // ==================================
 
 if (req.method === 'DELETE') {
-  if (!isAdmin(req)) {
+  if (!(await isAdmin(req))) {
     return json(res, 401, {
       error: 'Akses admin diperlukan.'
     });
