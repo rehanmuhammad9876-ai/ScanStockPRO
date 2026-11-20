@@ -665,44 +665,46 @@ function showDetail(id) {
 document.getElementById('inputUploadFoto')?.addEventListener('change', async (e) => {
   const files = [...(e.target.files || [])];
   if (!files.length) return;
+  const f = files[0];
+  e.target.value = '';
+
   const nama = document.getElementById('detailNamaBarang')?.textContent?.trim();
   const list = (typeof products !== 'undefined' ? products : (window.products || []));
-  const barang = list.find(p => (p.nama || p.name) === nama) || list[0];
-  if (!barang) { toast('Buka dulu detail barangnya.'); return; }
+  const barang = list.find(p => (p.name || p.nama) === nama);
+  if (!barang?.id) { toast('Buka dulu detail barangnya.'); return; }
 
-  const baca = (f) => new Promise(res => {
+  // Kompres sekecil mungkin biar muat 5000 karakter server
+  const image_url = await new Promise(res => {
     const img = new Image();
     const url = URL.createObjectURL(f);
     img.onload = () => {
-      const max = 800;
+      const max = 250;
       const scale = Math.min(1, max / Math.max(img.width, img.height));
       const c = document.createElement('canvas');
       c.width = img.width * scale; c.height = img.height * scale;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      res(c.toDataURL('image/jpeg', 0.7));
+      res(c.toDataURL('image/jpeg', 0.5));
     };
     img.src = url;
   });
 
-  const baru = [];
-  for (const f of files) baru.push(await baca(f));
-
-  const lama = barang.foto ? String(barang.foto).split('|').filter(Boolean) : [];
-  barang.foto = [...lama, ...baru].join('|');
-  if (barang.fotoUrl) barang.fotoUrl = barang.foto;
+  if (image_url.length > 5000) {
+    toast('Foto masih kegedean buat server. Coba foto yang lebih terang / deket.');
+    return;
+  }
 
   try {
-    await api('/api/products?id=' + encodeURIComponent(barang.id), {
-      method: 'PUT',
-      body: JSON.stringify(barang)
+    const r = await api('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update-photos', id: barang.id, image_url })
     });
-  } catch (err) { }
-
-  e.target.value = '';
-  toast('Foto berhasil ditambahkan.');
-  if (typeof bukaDetailProduk === 'function') bukaDetailProduk(barang.id);
-  else if (typeof renderGaleriFotoDetail === 'function') renderGaleriFotoDetail(barang);
+    if (!r || r.error) throw new Error(r?.error || 'Gagal simpan');
+    toast('Foto berhasil ditambahkan.');
+    if (typeof bukaDetailProduk === 'function') bukaDetailProduk(barang.id);
+  } catch (err) {
+    toast('GAGAL simpan: ' + (err.message || err));
+  }
 });
   $('#btnCariFotoDetail')?.addEventListener('click', () => {
     document.getElementById('inputCariFoto').click();
