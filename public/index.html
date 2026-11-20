@@ -715,51 +715,61 @@ document.getElementById('inputUploadFoto')?.addEventListener('change', async (e)
     toast('GAGAL: ' + (err.message || err));
   }
 });
-  $('#btnCariFotoDetail')?.addEventListener('click', () => {
+  $('#btnTambahFotoDetail')?.addEventListener('click', () => {
   document.getElementById('inputSimpanFotoDetail').click();
 });
 
-document.getElementById('inputSimpanFotoDetail').onchange = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+const inputFotoDetail = document.getElementById('inputSimpanFotoDetail');
 
-  e.target.value = '';
+if (inputFotoDetail) {
+  inputFotoDetail.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
 
-  try {
-    const image = await kompresFotoUntukAI(file);
+    try {
+      toast('Mengunggah foto...');
 
-    const upload = await api('/api/upload-foto', {
-      method: 'POST',
-      body: JSON.stringify({
-        image,
-        sku: p.sku,
-        id: p.id
-      })
-    });
+      const image = await kompresFotoUntukAI(file);
 
-    const fotoLama = pecahFoto(p);
-    const fotoBaru = [...fotoLama, upload.url];
+      const upload = await api('/api/upload-foto', {
+        method: 'POST',
+        body: JSON.stringify({
+          image,
+          sku: p.sku,
+          id: p.id
+        })
+      });
 
-    await api('/api/products', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'upsert',
-        product: {
-          ...p,
-          image_url: fotoBaru.join(',')
-        }
-      })
-    });
+      if (!upload?.url) {
+        throw new Error('URL foto tidak diterima.');
+      }
 
-    p.image_url = fotoBaru.join(',');
-    toast('Foto berhasil disimpan.');
-    loadProducts(true);
-    showDetail(p.id);
+      const fotoLama = pecahFoto(p);
+      const fotoBaru = [...fotoLama, upload.url];
 
-  } catch (err) {
-    toast(err.message || 'Gagal menyimpan foto.');
-  }
-};
+      await api('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'upsert',
+          product: {
+            ...p,
+            image_url: fotoBaru.join(',')
+          }
+        })
+      });
+
+      p.image_url = fotoBaru.join(',');
+      toast('Foto berhasil disimpan.');
+
+      await loadProducts(true);
+      showDetail(p.id);
+
+    } catch (err) {
+      toast(err.message || 'Gagal menyimpan foto.');
+    }
+  };
+}
   $('#deleteProduct')?.addEventListener('click', async () => {
     if (!confirm('Hapus barang ini?')) return;
     try {
