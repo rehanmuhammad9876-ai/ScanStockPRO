@@ -716,8 +716,71 @@ document.getElementById('inputUploadFoto')?.addEventListener('change', async (e)
   }
 });
   $('#btnCariFotoDetail')?.addEventListener('click', () => {
-    document.getElementById('inputCariFoto').click();
-  });
+  document.getElementById('inputSimpanFotoDetail').click();
+});
+
+const inputSimpanFoto = document.getElementById('inputSimpanFotoDetail');
+
+if (inputSimpanFoto) {
+  inputSimpanFoto.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    inputSimpanFoto.value = '';
+
+    try {
+      toast('Menyiapkan foto...');
+
+      // Kompres foto menggunakan fungsi yang sudah ada
+      const image = await kompresFotoUntukAI(file);
+
+      // 1. Upload foto ke Supabase Storage
+      const hasilUpload = await api('/api/upload-foto', {
+        method: 'POST',
+        body: JSON.stringify({
+          image,
+          sku: p.sku,
+          id: p.id
+        })
+      });
+
+      const urlFotoBaru = hasilUpload.url || hasilUpload.image_url;
+
+      if (!urlFotoBaru) {
+        throw new Error('URL foto tidak diterima dari server.');
+      }
+
+      // 2. Pertahankan foto lama, tambahkan foto baru
+      const fotoLama = pecahFoto(p);
+      const semuaFoto = [...fotoLama, urlFotoBaru];
+
+      // 3. Simpan seluruh data produk beserta foto terbaru
+      const produkUpdate = {
+        ...p,
+        image_url: semuaFoto.join(',')
+      };
+
+      await api('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'upsert',
+          product: produkUpdate
+        })
+      });
+
+      // 4. Perbarui data produk di tampilan lokal
+      p.image_url = semuaFoto.join(',');
+
+      toast('Foto berhasil disimpan.');
+
+      // Muat ulang data produk
+      loadProducts(true);
+
+    } catch (err) {
+      toast(err.message || 'Gagal menyimpan foto.');
+    }
+  };
+}
 
   $('#deleteProduct')?.addEventListener('click', async () => {
     if (!confirm('Hapus barang ini?')) return;
@@ -1343,6 +1406,7 @@ initialize();
  <!-- === TAMBAHAN CARA A: UPLOAD + SLIDER + CARI PAKE FOTO - JANGAN HAPUS YANG LAMA === -->
 <input type="file" id="inputUploadFoto" accept="image/*" multiple style="display:none">
 <input type="file" id="inputCariFoto" accept="image/*" style="display:none">
+<input type="file" id="inputSimpanFotoDetail" accept="image/jpeg,image/png,image/webp" style="display:none">
 <div id="modalFoto" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
   <button onclick="tutupModalFoto()" style="position:absolute;top:16px;right:16px;background:#fff;border:0;padding:10px 14px;border-radius:99px;font-weight:800">✕</button>
   <img id="fotoGede" src="" style="width:92vw;max-width:480px;height:62vh;object-fit:cover;border-radius:16px">
