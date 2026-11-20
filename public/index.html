@@ -662,7 +662,48 @@ function showDetail(id) {
   $('#btnTambahFotoDetail')?.addEventListener('click', () => {
     document.getElementById('inputUploadFoto').click();
   });
+document.getElementById('inputUploadFoto')?.addEventListener('change', async (e) => {
+  const files = [...(e.target.files || [])];
+  if (!files.length) return;
+  const nama = document.getElementById('detailNamaBarang')?.textContent?.trim();
+  const list = (typeof products !== 'undefined' ? products : (window.products || []));
+  const barang = list.find(p => (p.nama || p.name) === nama) || list[0];
+  if (!barang) { toast('Buka dulu detail barangnya.'); return; }
 
+  const baca = (f) => new Promise(res => {
+    const img = new Image();
+    const url = URL.createObjectURL(f);
+    img.onload = () => {
+      const max = 800;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = img.width * scale; c.height = img.height * scale;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', 0.7));
+    };
+    img.src = url;
+  });
+
+  const baru = [];
+  for (const f of files) baru.push(await baca(f));
+
+  const lama = barang.foto ? String(barang.foto).split('|').filter(Boolean) : [];
+  barang.foto = [...lama, ...baru].join('|');
+  if (barang.fotoUrl) barang.fotoUrl = barang.foto;
+
+  try {
+    await api('/api/products?id=' + encodeURIComponent(barang.id), {
+      method: 'PUT',
+      body: JSON.stringify(barang)
+    });
+  } catch (err) { }
+
+  e.target.value = '';
+  toast('Foto berhasil ditambahkan.');
+  if (typeof bukaDetailProduk === 'function') bukaDetailProduk(barang.id);
+  else if (typeof renderGaleriFotoDetail === 'function') renderGaleriFotoDetail(barang);
+});
   $('#btnCariFotoDetail')?.addEventListener('click', () => {
     document.getElementById('inputCariFoto').click();
   });
