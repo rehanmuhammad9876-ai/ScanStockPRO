@@ -611,8 +611,7 @@ function showDetail(id) {
           : `<div class="text-slate-400 text-sm">Belum ada foto barang</div>`
         }
       </div>
-<button id="btnTambahFotoDetail" ...>📷 + Tambah...
-<input type="file" id="inputTambahFotoDetail" ..
+
       <h2 class="text-xl font-bold mt-4">
         ${escapeHTML(p.name || '-')}
       </h2>
@@ -2104,6 +2103,61 @@ document.addEventListener('change', async function(e){
   alert('Foto berhasil nempel (udah dikompres jadi kecil)');
   e.target.value = '';
 });
+  // === FINAL 1x TEMPEL: HIJAU MUDA DOANG YANG HIDUP ===
+(function(){
+  let input = document.getElementById('inputHijauFinal');
+  if(!input){
+    input = document.createElement('input');
+    input.type='file'; input.id='inputHijauFinal'; input.accept='image/*'; input.style.display='none';
+    document.body.appendChild(input);
+  }
+  function kompres(file){
+    return new Promise((res)=>{
+      const img=new Image(); const url=URL.createObjectURL(file);
+      img.onload=()=>{
+        const max=800; let w=img.width, h=img.height;
+        if(w>max){ h=Math.round(h*max/w); w=max; }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        URL.revokeObjectURL(url);
+        res(c.toDataURL('image/jpeg',0.7));
+      };
+      img.src=url;
+    });
+  }
+  document.addEventListener('click', function(e){
+    document.querySelectorAll('button').forEach(b=>{
+      if(b.textContent.includes('Cari Barang Pakai Foto')) b.remove();
+      if(b.id==='btnTambahFotoDetail') b.remove();
+    });
+    document.querySelectorAll('input[type="file"]').forEach(inp=>{
+      if(inp.id!=='inputHijauFinal') inp.style.display='none';
+    });
+    const btn = e.target.closest('button');
+    if(btn && btn.textContent.trim()==='+ Tambah Foto'){ input.click(); }
+  });
+  input.addEventListener('change', async function(){
+    const file=input.files[0]; if(!file) return;
+    const dataUrl=await kompres(file);
+    const m=document.body.innerText.match(/SKU:\s*(\S+)/);
+    const sku=window._skuDetailAktif || (m?m[1]:'');
+    const list=window.products||window.allProducts||[];
+    const p=list.find(x=>String(x.sku)===String(sku)||String(x.id)===String(sku));
+    if(p) p.image_url=dataUrl;
+    try{
+      const s=JSON.parse(localStorage.getItem('fotoBarangManual')||'{}');
+      s[String(sku)]=dataUrl; localStorage.setItem('fotoBarangManual',JSON.stringify(s));
+    }catch(e){}
+    document.querySelectorAll('div').forEach(d=>{
+      if(d.textContent.trim()==='Belum ada foto barang'){
+        d.innerHTML=`<img src="${dataUrl}" style="width:100%;border-radius:12px;object-fit:cover">`;
+      }
+    });
+    if(typeof render==='function') render();
+    alert('Foto udah nempel!');
+    input.value='';
+  });
+})();
 </script>
 </body>
 </html>
