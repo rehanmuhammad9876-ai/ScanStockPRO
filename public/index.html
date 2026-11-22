@@ -2103,61 +2103,53 @@ document.addEventListener('change', async function(e){
   alert('Foto berhasil nempel (udah dikompres jadi kecil)');
   e.target.value = '';
 });
-  // === FINAL 1x TEMPEL: HIJAU MUDA DOANG YANG HIDUP ===
-(function(){
-  let input = document.getElementById('inputHijauFinal');
-  if(!input){
-    input = document.createElement('input');
-    input.type='file'; input.id='inputHijauFinal'; input.accept='image/*'; input.style.display='none';
-    document.body.appendChild(input);
-  }
-  function kompres(file){
-    return new Promise((res)=>{
-      const img=new Image(); const url=URL.createObjectURL(file);
-      img.onload=()=>{
-        const max=800; let w=img.width, h=img.height;
-        if(w>max){ h=Math.round(h*max/w); w=max; }
-        const c=document.createElement('canvas'); c.width=w; c.height=h;
-        c.getContext('2d').drawImage(img,0,0,w,h);
-        URL.revokeObjectURL(url);
-        res(c.toDataURL('image/jpeg',0.7));
-      };
-      img.src=url;
-    });
-  }
-  document.addEventListener('click', function(e){
-    document.querySelectorAll('button').forEach(b=>{
-      if(b.textContent.includes('Cari Barang Pakai Foto')) b.remove();
-      if(b.id==='btnTambahFotoDetail') b.remove();
-    });
-    document.querySelectorAll('input[type="file"]').forEach(inp=>{
-      if(inp.id!=='inputHijauFinal') inp.style.display='none';
-    });
-    const btn = e.target.closest('button');
-    if(btn && btn.textContent.trim()==='+ Tambah Foto'){ input.click(); }
+// === SATU-SATUNYA, JANGAN DOBEL ===
+if(!window.__fixHijau){
+window.__fixHijau = true;
+let inp = document.createElement('input');
+inp.type='file'; inp.accept='image/*'; inp.style.display='none';
+document.body.appendChild(inp);
+
+document.addEventListener('click', function(e){
+  document.querySelectorAll('button').forEach(b=>{
+    if(b.textContent.includes('Cari Barang Pakai Foto')) b.remove();
   });
-  input.addEventListener('change', async function(){
-    const file=input.files[0]; if(!file) return;
-    const dataUrl=await kompres(file);
-    const m=document.body.innerText.match(/SKU:\s*(\S+)/);
-    const sku=window._skuDetailAktif || (m?m[1]:'');
-    const list=window.products||window.allProducts||[];
-    const p=list.find(x=>String(x.sku)===String(sku)||String(x.id)===String(sku));
-    if(p) p.image_url=dataUrl;
+  const btn = e.target.closest('button');
+  if(btn && btn.textContent.trim() === '+ Tambah Foto'){ inp.click(); }
+});
+
+inp.addEventListener('change', async function(){
+  const f = inp.files[0]; if(!f) return;
+  const img = new Image(); const url = URL.createObjectURL(f);
+  img.onload = ()=>{
+    const c = document.createElement('canvas');
+    const s = 800 / Math.max(img.width, img.height, 800);
+    c.width = img.width * Math.min(s,1); c.height = img.height * Math.min(s,1);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const data = c.toDataURL('image/jpeg',0.7);
+    URL.revokeObjectURL(url);
+
+    const sku = (document.body.innerText.match(/SKU:\s*(\S+)/)||[])[1] || '';
+    const list = window.products || [];
+    const p = list.find(x=>String(x.sku)===String(sku));
+    if(p) p.image_url = data;
     try{
-      const s=JSON.parse(localStorage.getItem('fotoBarangManual')||'{}');
-      s[String(sku)]=dataUrl; localStorage.setItem('fotoBarangManual',JSON.stringify(s));
+      const o = JSON.parse(localStorage.getItem('fotoBarangManual')||'{}');
+      o[sku]=data; localStorage.setItem('fotoBarangManual', JSON.stringify(o));
     }catch(e){}
+
     document.querySelectorAll('div').forEach(d=>{
       if(d.textContent.trim()==='Belum ada foto barang'){
-        d.innerHTML=`<img src="${dataUrl}" style="width:100%;border-radius:12px;object-fit:cover">`;
+        d.innerHTML = '<img src="'+data+'" style="width:100%;border-radius:12px">';
       }
     });
     if(typeof render==='function') render();
     alert('Foto udah nempel!');
-    input.value='';
-  });
-})();
+    inp.value='';
+  };
+  img.src = url;
+});
+  }
 </script>
 </body>
 </html>
