@@ -611,7 +611,8 @@ function showDetail(id) {
           : `<div class="text-slate-400 text-sm">Belum ada foto barang</div>`
         }
       </div>
-
+<button id="btnTambahFotoDetail" ...>📷 + Tambah...
+<input type="file" id="inputTambahFotoDetail" ..
       <h2 class="text-xl font-bold mt-4">
         ${escapeHTML(p.name || '-')}
       </h2>
@@ -2058,6 +2059,50 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     URL.revokeObjectURL(objectPreviewUrl);
     e.target.value = '';
   }
+});
+  // === FINAL: TAMBAH FOTO DI POPUP - UDAH KOMPRES + LANGSUNG NEMPEL ===
+function kompresFoto(file){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const maxLebar = 800;
+      let w = img.width, h = img.height;
+      if(w > maxLebar){ h = Math.round(h * maxLebar / w); w = maxLebar; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.src = url;
+  });
+}
+
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('#btnTambahFotoDetail');
+  if(btn){ document.getElementById('inputTambahFotoDetail').click(); }
+});
+
+document.addEventListener('change', async function(e){
+  if(e.target.id !== 'inputTambahFotoDetail') return;
+  const file = e.target.files[0];
+  if(!file) return;
+  const dataUrl = await kompresFoto(file);
+  const sku = document.getElementById('detailSku')?.textContent?.trim() || window._skuDetailAktif;
+  const produk = (window.products || products || []).find(p => String(p.sku) === String(sku) || String(p.id) === String(sku));
+  if(!produk){ alert('Barang tidak ketemu, tutup popup lalu buka lagi'); return; }
+  produk.image_url = dataUrl;
+  try{
+    const simpan = JSON.parse(localStorage.getItem('fotoBarangManual') || '{}');
+    simpan[String(produk.sku || produk.id)] = dataUrl;
+    localStorage.setItem('fotoBarangManual', JSON.stringify(simpan));
+  }catch(err){ alert('Memori penuh, coba foto lain'); return; }
+  const galeri = document.getElementById('detailGaleri') || document.querySelector('.detail-foto');
+  if(galeri){ galeri.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:12px;object-fit:cover">`; }
+  render();
+  alert('Foto berhasil nempel (udah dikompres jadi kecil)');
+  e.target.value = '';
 });
 </script>
 </body>
