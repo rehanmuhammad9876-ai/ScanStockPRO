@@ -668,7 +668,7 @@ function showDetail(id) {
   $('#detail').hidden = false;
 
   $('#btnTambahFotoDetail')?.addEventListener('click', () => 
-  document.getElementById('inputSimpanFotoDetail').click();
+  document.getElementById('inputUploadFoto').click();
   });
   // FIX: Tombol cari di popup -> buka cari pake foto
   $('#btnCariFotoDetail')?.addEventListener('click', () => {
@@ -677,7 +677,7 @@ function showDetail(id) {
   });
 
   // FIX: Cuma 1 handler tambah foto, pake closure p.id / p.sku, jangan baca innerText
-  const inputFotoDetail = document.getElementById('inputSimpanFotoDetail');
+  const inputFotoDetail = document.getElementById('inputUploadFoto');
   if (inputFotoDetail) {
     inputFotoDetail.onchange = async (e) => {
       const file = e.target.files?.[0];
