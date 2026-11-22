@@ -662,114 +662,46 @@ function showDetail(id) {
   $('#btnTambahFotoDetail')?.addEventListener('click', () => {
     document.getElementById('inputUploadFoto').click();
   });
-document.getElementById('inputUploadFoto')?.addEventListener('change', async (e) => {
-  const files = [...(e.target.files || [])];
-  if (!files.length) return;
-  const f = files[0];
-  e.target.value = '';
+  // FIX: Tombol cari di popup -> buka cari pake foto
+  $('#btnCariFotoDetail')?.addEventListener('click', () => {
+    $('#detail').hidden = true;
+    document.getElementById('inputCariFoto').click();
+  });
 
-  try {
-    // Ambil SKU + Nama langsung dari detail yang lagi kebuka
-    const detailEl = document.getElementById('detail') || document.body;
-    const teks = detailEl.innerText || '';
-    const skuMatch = teks.match(/SKU:\s*([^\n]+)/);
-    const sku = skuMatch ? skuMatch[1].trim() : '';
-    const namaEl = document.getElementById('detailNamaBarang');
-    const nama = namaEl ? namaEl.textContent.trim() : '';
-
-    if (!sku && !nama) throw new Error('Detail tidak kebaca');
-
-    // Tanya server langsung, jangan pake variabel lokal
-    const r = await api('/api/products?limit=200&q=' + encodeURIComponent(sku || nama));
-    const list = r.products || r.data || [];
-    const barang = list.find(p => String(p.sku) === sku) || list.find(p => (p.name || '') === nama) || list[0];
-    if (!barang?.id) throw new Error('Barang tidak ketemu di server (SKU: ' + sku + ')');
-
-    // Kompres kecil biar muat limit 5000 server
-    const image_url = await new Promise(res => {
-      const img = new Image();
-      const url = URL.createObjectURL(f);
-      img.onload = () => {
-        const max = 250;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const c = document.createElement('canvas');
-        c.width = img.width * scale; c.height = img.height * scale;
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        URL.revokeObjectURL(url);
-        res(c.toDataURL('image/jpeg', 0.5));
-      };
-      img.src = url;
-    });
-
-    if (image_url.length > 5000) { toast('Foto masih kegedean, coba foto lebih deket / terang.'); return; }
-
-    const save = await api('/api/products', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'update-photos', id: barang.id, image_url })
-    });
-    if (!save || save.error) throw new Error(save?.error || 'Server nolak');
-
-    toast('Foto berhasil ditambahkan.');
-    if (typeof bukaDetailProduk === 'function') bukaDetailProduk(barang.id);
-  } catch (err) {
-    toast('GAGAL: ' + (err.message || err));
-  }
-});
-  $('#btnTambahFotoDetail')?.addEventListener('click', () => {
-  document.getElementById('inputSimpanFotoDetail').click();
-});
-
-const inputFotoDetail = document.getElementById('inputSimpanFotoDetail');
-
-if (inputFotoDetail) {
-  inputFotoDetail.onchange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-
-    try {
-      toast('Mengunggah foto...');
-
-      const image = await kompresFotoUntukAI(file);
-
-      const upload = await api('/api/upload-foto', {
-        method: 'POST',
-        body: JSON.stringify({
-          image,
-          sku: p.sku,
-          id: p.id
-        })
-      });
-
-      if (!upload?.url) {
-        throw new Error('URL foto tidak diterima.');
+  // FIX: Cuma 1 handler tambah foto, pake closure p.id / p.sku, jangan baca innerText
+  const inputFotoDetail = document.getElementById('inputSimpanFotoDetail');
+  if (inputFotoDetail) {
+    inputFotoDetail.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = '';
+      try {
+        toast('Mengunggah foto...');
+        const image = await kompresFotoUntukAI(file);
+        const upload = await api('/api/upload-foto', {
+          method: 'POST',
+          body: JSON.stringify({ image, sku: p.sku, id: p.id })
+        });
+        if (!upload?.url) throw new Error('URL foto tidak diterima.');
+        const fotoBaru = [...pecahFoto(p), upload.url];
+        await api('/api/products', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'upsert', product: { ...p, image_url: fotoBaru.join(',') } })
+        });
+        p.image_url = fotoBaru.join(',');
+        toast('Foto berhasil disimpan, nempel ke barang.');
+        await loadProducts(true);
+        showDetail(p.id);
+      } catch (err) {
+        toast(err.message || 'Gagal menyimpan foto.');
       }
+    };
+  }
 
-      const fotoLama = pecahFoto(p);
-      const fotoBaru = [...fotoLama, upload.url];
-
-      await api('/api/products', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'upsert',
-          product: {
-            ...p,
-            image_url: fotoBaru.join(',')
-          }
-        })
-      });
-
-      p.image_url = fotoBaru.join(',');
-      toast('Foto berhasil disimpan.');
-
-      await loadProducts(true);
-      showDetail(p.id);
-
-    } catch (err) {
-      toast(err.message || 'Gagal menyimpan foto.');
-    }
-  };
-}
+  // FIX: Tombol + Tambah Foto cuma trigger input yang bener
+  $('#btnTambahFotoDetail')?.addEventListener('click', () => {
+    document.getElementById('inputSimpanFotoDetail').click();
+  }); 
   $('#deleteProduct')?.addEventListener('click', async () => {
     if (!confirm('Hapus barang ini?')) return;
     try {
@@ -909,8 +841,7 @@ $('#barcodeFile').onchange=async e=>{
   }catch(e){toast('Barcode tidak terbaca. Coba foto lebih jelas / dekat.')}
 };
 
-$('#photoBtn').onclick=()=>$('#photoInput').click();
-
+$('#photoBtn').onclick=()=>document.getElementById('inputCariFoto').click();
 async function imageAI(file,action,extra={}) {
  const base64 = await new Promise((resolve,reject)=>{
   const img = new Image();
@@ -1480,13 +1411,7 @@ const KAMUS_SINONIM = {
   korek: ['lighter', 'gas lighter', 'match', 'matches', 'korek api']
 
 };
-  function pecahFoto(teks) {
-  return String(teks || '')
-    .toLowerCase()
-    .split(/[\s,./-]+/)
-    .map(k => k.trim())
-    .filter(k => k.length >= 2);
-}
+  
 function ambilKataKunciInti(teks) {
   const kataUmumMenjebak = new Set([
     'plastik', 'plastic', 'edukasi', 'anak', 'kids', 'mainan', 'toy',
@@ -2026,12 +1951,12 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       image,
       mimeType: 'image/jpeg',
       candidates: kandidat.map(p => ({
-        sku: String(p.sku || ''),
-        name: String(p.name || ''),
-        category: String(p.category || ''),
-        description: String(p.description || '')
-      }))
-    });
+  sku: String(p.sku || ''),
+  name: String(p.name || ''),
+  category: String(p.category || ''),
+  description: String(p.description || ''),
+  image_url: fotoUtama(p) || ''
+}))
 
     const matches = Array.isArray(hasilVerifikasi.result?.matches)
       ? hasilVerifikasi.result.matches
