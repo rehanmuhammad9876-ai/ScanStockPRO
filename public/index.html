@@ -1411,7 +1411,16 @@ const KAMUS_SINONIM = {
   korek: ['lighter', 'gas lighter', 'match', 'matches', 'korek api']
 
 };
-  
+  function pecahFoto(p) {
+  if (!p) return [];
+  if (Array.isArray(p.image_url)) return p.image_url;
+  return String(p.image_url || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function fotoUtama(p) {
+  const f = pecahFoto(p);
+  return f[0] || "";
+}
 function ambilKataKunciInti(teks) {
   const kataUmumMenjebak = new Set([
     'plastik', 'plastic', 'edukasi', 'anak', 'kids', 'mainan', 'toy',
