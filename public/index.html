@@ -1333,7 +1333,7 @@ initialize();
  <!-- === TAMBAHAN CARA A: UPLOAD + SLIDER + CARI PAKE FOTO - JANGAN HAPUS YANG LAMA === -->
 <input type="file" id="inputUploadFoto" accept="image/*" multiple style="display:none">
 <input type="file" id="inputCariFoto" accept="image/*" style="display:none">
-<input type="file" id="inputSimpanFotoDetail" accept="image/jpeg,image/png,image/webp" style="display:none">
+<input type="file" id="inputSimpanFotoDetail" accept="image/*" style="display:none">
 <div id="modalFoto" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
   <button onclick="tutupModalFoto()" style="position:absolute;top:16px;right:16px;background:#fff;border:0;padding:10px 14px;border-radius:99px;font-weight:800">✕</button>
   <img id="fotoGede" src="" style="width:92vw;max-width:480px;height:62vh;object-fit:cover;border-radius:16px">
@@ -1663,44 +1663,37 @@ if (_fotoGedeEl) {
 }
 
 async function kompresFotoUntukAI(file) {
-  if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
-    throw new Error('Gunakan foto JPG, PNG, atau WebP.');
-  }
+  const dataUrlAwal = await new Promise((res, rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = ()=>rej(new Error('Foto gagal dibaca.'));
+    r.readAsDataURL(file);
+  });
+  const img = new Image();
+  img.src = dataUrlAwal;
+  await new Promise((res, rej)=>{ img.onload=res; img.onerror=()=>rej(new Error('Foto gagal dibuka, coba pilih dari File bukan Google Foto.')); });
 
-  const bitmap = await createImageBitmap(file);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  const ukuran = [1600, 1400, 1200, 1000, 800, 640];
-
+  const ukuran = [1200, 1000, 800];
   for (const maxSize of ukuran) {
-    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise(resolve => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.80);
-    });
-
-    if (!blob) continue;
-
-    if (blob.size <= 2_500_000) {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
-        reader.readAsDataURL(blob);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+    if (blob && blob.size <= 2500000) {
+      return await new Promise((resolve, reject)=>{
+        const rr = new FileReader();
+        rr.onload = ()=>resolve(rr.result);
+        rr.onerror = ()=>reject(new Error('Foto gagal dibaca.'));
+        rr.readAsDataURL(blob);
       });
-      bitmap.close();
-      return dataUrl;
     }
   }
-
-  bitmap.close();
-  throw new Error('Ukuran foto masih terlalu besar. Coba foto lain.');
+  throw new Error('Ukuran foto masih terlalu besar.');
 }
 
 function renderPreviewFotoUpload(src, statusHtml) {
