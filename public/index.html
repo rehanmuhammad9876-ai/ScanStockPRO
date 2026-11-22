@@ -679,7 +679,7 @@ function showDetail(id) {
   // FIX: Cuma 1 handler tambah foto, pake closure p.id / p.sku, jangan baca innerText
   const inputFotoDetail = document.getElementById('inputUploadFoto');
   if (inputFotoDetail) {
-    inputFotoDetail.onchange = async (e) => {
+    inputFotoDetail?.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       e.target.value = '';
