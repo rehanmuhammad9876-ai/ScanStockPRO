@@ -2,18 +2,12 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  db,
   json,
   isAdmin,
   requireEnv,
   errorMessage
 } from '../lib/server.js';
-
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -30,8 +24,8 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!isAdmin(req)) {
-    return json(res, 403, {
+  if (!(await isAdmin(req))) {
+    return json(res, 401, {
       success: false,
       error: 'Akses admin diperlukan.'
     });
@@ -87,7 +81,7 @@ export default async function handler(req, res) {
     const filename =
       `${safeSku}-${randomUUID()}.${ext}`;
 
-    const { error: uploadError } = await supabase
+    const { error: uploadError } = await db
       .storage
       .from('product-photos')
       .upload(filename, buffer, {
@@ -100,7 +94,7 @@ export default async function handler(req, res) {
       throw uploadError;
     }
 
-    const { data: publicData } = supabase
+    const { data: publicData } = db
       .storage
       .from('product-photos')
       .getPublicUrl(filename);
