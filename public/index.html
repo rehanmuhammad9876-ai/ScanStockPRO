@@ -432,6 +432,64 @@ if(!window.ZXingBrowser){
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
+// ============================================
+// FUNGSI KOMPRESI FOTO UNTUK AI & UPLOAD (GLOBAL)
+// ============================================
+async function kompresFotoUntukAI(file) {
+  if (!file) throw new Error('File foto tidak ditemukan.');
+
+  const dataUrlAwal = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
+    reader.readAsDataURL(file);
+  });
+
+  const img = new Image();
+  img.src = dataUrlAwal;
+  await new Promise((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('Foto gagal dibuka. Pastikan format JPG, PNG, atau WebP.'));
+  });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const ukuran = [1200, 1000, 800, 640];
+
+  for (const maxSize of ukuran) {
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+    if (blob && blob.size <= 2500000) {
+      return await new Promise((resolve, reject) => {
+        const rr = new FileReader();
+        rr.onload = () => resolve(rr.result);
+        rr.onerror = () => reject(new Error('Foto gagal dibaca.'));
+        rr.readAsDataURL(blob);
+      });
+    }
+  }
+
+  // Fallback kompresi jika foto resolusi sangat tinggi
+  const fallbackBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.65));
+  if (fallbackBlob) {
+    return await new Promise((resolve, reject) => {
+      const rr = new FileReader();
+      rr.onload = () => resolve(rr.result);
+      rr.onerror = () => reject(new Error('Foto gagal dibaca.'));
+      rr.readAsDataURL(fallbackBlob);
+    });
+  }
+
+  return dataUrlAwal;
+}
+window.kompresFotoUntukAI = kompresFotoUntukAI;
+
 let products = [];
 let page = 0;
 let token = '';
@@ -708,7 +766,7 @@ function showDetail(id) {
       e.target.value = '';
       try {
         toast('Mengunggah & memproses foto...');
-        const image = await kompresFotoUntukAI(file);
+        const image = await (window.kompresFotoUntukAI || kompresFotoUntukAI)(file);
         const upload = await api('/api/upload-foto', {
           method: 'POST',
           body: JSON.stringify({ image, sku: p.sku, id: p.id })
@@ -897,23 +955,7 @@ $('#barcodeFile').onchange=async e=>{
 
 $('#photoBtn').onclick=()=>document.getElementById('inputCariFoto').click();
 async function imageAI(file,action,extra={}) {
- const base64 = await new Promise((resolve,reject)=>{
-  const img = new Image();
-  img.onload = ()=>{
-    let w = img.width, h = img.height;
-    const max = 1024;
-    if(w > max || h > max){
-      const r = Math.min(max/w, max/h);
-      w = Math.round(w*r); h = Math.round(h*r);
-    }
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img,0,0,w,h);
-    resolve(c.toDataURL('image/jpeg',0.75));
-  };
-  img.onerror = reject;
-  img.src = URL.createObjectURL(file);
-});
+ const base64 = await (window.kompresFotoUntukAI || kompresFotoUntukAI)(file);
 
  return api('/api/gemini',{
   method:'POST',
@@ -1717,38 +1759,8 @@ if (_fotoGedeEl) {
   });
 }
 
-async function kompresFotoUntukAI(file) {
-  const dataUrlAwal = await new Promise((res, rej)=>{
-    const r = new FileReader();
-    r.onload = ()=>res(r.result);
-    r.onerror = ()=>rej(new Error('Foto gagal dibaca.'));
-    r.readAsDataURL(file);
-  });
-  const img = new Image();
-  img.src = dataUrlAwal;
-  await new Promise((res, rej)=>{ img.onload=res; img.onerror=()=>rej(new Error('Foto gagal dibuka, coba pilih dari File bukan Google Foto.')); });
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const ukuran = [1200, 1000, 800];
-  for (const maxSize of ukuran) {
-    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-    if (blob && blob.size <= 2500000) {
-      return await new Promise((resolve, reject)=>{
-        const rr = new FileReader();
-        rr.onload = ()=>resolve(rr.result);
-        rr.onerror = ()=>reject(new Error('Foto gagal dibaca.'));
-        rr.readAsDataURL(blob);
-      });
-    }
-  }
-  throw new Error('Ukuran foto masih terlalu besar.');
+if (typeof kompresFotoUntukAI === 'undefined') {
+  var kompresFotoUntukAI = window.kompresFotoUntukAI;
 }
 
 function renderPreviewFotoUpload(src, statusHtml) {
@@ -1888,45 +1900,8 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
       throw new Error('Gunakan foto JPG, PNG, atau WebP.');
     }
 
-    const bitmap = await createImageBitmap(file);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    let image = null;
-    let berhasilKompres = false;
-
-    const ukuran = [1600, 1400, 1200, 1000, 800, 640];
-
-    for (const maxSize of ukuran) {
-      const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-      const blob = await new Promise(resolve => {
-        canvas.toBlob(resolve, 'image/jpeg', 0.80);
-      });
-
-      if (!blob) continue;
-
-      if (blob.size <= 2_500_000) {
-        image = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('Foto gagal dibaca.'));
-          reader.readAsDataURL(blob);
-        });
-        berhasilKompres = true;
-        break;
-      }
-    }
-
-    bitmap.close();
-
-    if (!berhasilKompres || !image) {
+    const image = await (window.kompresFotoUntukAI || kompresFotoUntukAI)(file);
+    if (!image) {
       throw new Error('Ukuran foto masih terlalu besar. Coba foto lain.');
     }
 
