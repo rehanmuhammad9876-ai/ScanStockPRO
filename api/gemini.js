@@ -1,4 +1,8 @@
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const DEFAULT_MODELS = [
+  process.env.GEMINI_MODEL,
+  'gemini-2.0-flash',
+  'gemini-1.5-flash'
+].filter(Boolean);
 
 function parseJsonSafe(rawText) {
   if (!rawText || typeof rawText !== 'string') return null;
@@ -31,7 +35,7 @@ export default async function handler(req, res) {
 
   if (!key) {
     return res.status(503).json({
-      error: 'Layanan AI belum dikonfigurasi.'
+      error: 'GEMINI_API_KEY belum dikonfigurasi di Vercel Settings.'
     });
   }
 
@@ -103,30 +107,57 @@ Jika tidak ada yang jenisnya sama, balas:
       });
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
+    let result = null;
+    let lastError = null;
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': key
-      },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.1
+    // Coba model prioritas (gemini-2.0-flash lalu fallback gemini-1.5-flash)
+    for (const modelName of DEFAULT_MODELS) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key
+          },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1
+            }
+          })
+        });
+
+        if (response.ok) {
+          result = await response.json();
+          break;
         }
-      })
-    });
 
-    if (!response.ok) {
-      const errBody = await response.text().catch(() => '');
-      console.error('Gemini request failed:', response.status, errBody);
-      throw new Error('AI_UNAVAILABLE');
+        const errText = await response.text().catch(() => '');
+        console.warn(`Gemini model ${modelName} gagal (${response.status}):`, errText);
+
+        if (response.status === 400 && errText.includes('API_KEY_INVALID')) {
+          return res.status(400).json({
+            error: 'GEMINI_API_KEY tidak valid. Periksa kembali di Google AI Studio.'
+          });
+        }
+        if (response.status === 429) {
+          return res.status(429).json({
+            error: 'Batas kuota Gemini tercapai. Silakan coba sebentar lagi.'
+          });
+        }
+
+        lastError = new Error(`HTTP ${response.status}: ${errText}`);
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    const result = await response.json();
+    if (!result) {
+      throw lastError || new Error('Semua model Gemini tidak merespons.');
+    }
+
     const output = result.candidates?.[0]?.content?.parts
       ?.map(p => p.text || '').join('');
 
@@ -141,7 +172,7 @@ Jika tidak ada yang jenisnya sama, balas:
     console.error('AI error:', error.message);
 
     return res.status(502).json({
-      error: 'AI belum dapat memproses permintaan. Silakan coba lagi.'
+      error: error.message || 'AI belum dapat memproses permintaan. Silakan coba lagi.'
     });
   }
 }
