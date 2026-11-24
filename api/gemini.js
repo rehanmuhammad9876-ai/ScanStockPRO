@@ -1,4 +1,4 @@
-const MODEL = 'gemini-3.5-flash-lite';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
 function parseJsonSafe(rawText) {
   if (!rawText || typeof rawText !== 'string') return null;
@@ -7,7 +7,17 @@ function parseJsonSafe(rawText) {
     .replace(/^```\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {}
+    }
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
