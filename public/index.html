@@ -552,8 +552,27 @@ async function loadProducts(reset=false) {
 }
 
 
+function updateFilterDropdowns() {
+  const catEl = $('#category');
+  const locEl = $('#location');
+  if (!catEl || !locEl) return;
+
+  const currentCat = catEl.value;
+  const currentLoc = locEl.value;
+
+  const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+  const locs = [...new Set(products.map(p => p.location).filter(Boolean))].sort();
+
+  catEl.innerHTML = '<option value="">Semua kategori</option>' +
+    cats.map(c => `<option value="${escapeHTML(c)}" ${c === currentCat ? 'selected' : ''}>${escapeHTML(c)}</option>`).join('');
+
+  locEl.innerHTML = '<option value="">Semua rak</option>' +
+    locs.map(l => `<option value="${escapeHTML(l)}" ${l === currentLoc ? 'selected' : ''}>${escapeHTML(l)}</option>`).join('');
+}
+
 function render() {
- $('#count').textContent=products.length+' barang';
+  updateFilterDropdowns();
+  $('#count').textContent=products.length+' barang';
 
  $('#results').innerHTML=products.map((p,i)=>`
  <article class="surface card cursor-pointer" data-id="${p.id}">
@@ -667,49 +686,56 @@ function showDetail(id) {
 
   $('#detail').hidden = false;
 
-  $('#btnTambahFotoDetail')?.addEventListener('click', () => 
-  document.getElementById('inputUploadFoto').click();
-  });
-  // FIX: Tombol cari di popup -> buka cari pake foto
-  $('#btnCariFotoDetail')?.addEventListener('click', () => {
-    $('#detail').hidden = true;
-    document.getElementById('inputCariFoto').click();
+  // Tombol tambah foto di detail produk (khusus admin)
+  $('#btnTambahFotoDetail')?.addEventListener('click', () => {
+    const input = document.getElementById('inputUploadFoto');
+    if (input) input.click();
   });
 
-  // FIX: Cuma 1 handler tambah foto, pake closure p.id / p.sku, jangan baca innerText
+  // Tombol cari barang pakai foto di detail
+  $('#btnCariFotoDetail')?.addEventListener('click', () => {
+    $('#detail').hidden = true;
+    const input = document.getElementById('inputCariFoto');
+    if (input) input.click();
+  });
+
+  // Handler upload foto produk
   const inputFotoDetail = document.getElementById('inputUploadFoto');
   if (inputFotoDetail) {
-    inputFotoDetail?.onchange = async (e) => {
+    inputFotoDetail.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       e.target.value = '';
       try {
-        toast('Mengunggah foto...');
+        toast('Mengunggah & memproses foto...');
         const image = await kompresFotoUntukAI(file);
         const upload = await api('/api/upload-foto', {
           method: 'POST',
           body: JSON.stringify({ image, sku: p.sku, id: p.id })
         });
-        if (!upload?.url) throw new Error('URL foto tidak diterima.');
+        if (!upload?.url) throw new Error('URL foto tidak diterima dari server.');
         const fotoBaru = [...pecahFoto(p), upload.url];
+        const newImagesStr = fotoBaru.join(',');
+
+        // Update database produk
         await api('/api/products', {
           method: 'POST',
-          body: JSON.stringify({ action: 'upsert', product: { ...p, image_url: fotoBaru.join(',') } })
+          body: JSON.stringify({
+            action: 'update-photos',
+            id: p.id,
+            image_url: newImagesStr
+          })
         });
-        p.image_url = fotoBaru.join(',');
-        toast('Foto berhasil disimpan, nempel ke barang.');
-        await loadProducts(true);
+
+        p.image_url = newImagesStr;
+        toast('Foto produk berhasil ditambahkan!');
+        await loadProducts(false);
         showDetail(p.id);
       } catch (err) {
         toast(err.message || 'Gagal menyimpan foto.');
       }
     };
-  }
-
-  // FIX: Tombol + Tambah Foto cuma trigger input yang bener
-  $('#btnTambahFotoDetail')?.addEventListener('click', () => {
-    document.getElementById('inputSimpanFotoDetail').click();
-  }); 
+  } 
   $('#deleteProduct')?.addEventListener('click', async () => {
     if (!confirm('Hapus barang ini?')) return;
     try {
@@ -802,13 +828,17 @@ async function startScanner() {
     scanner = new ZXingBrowser.BrowserMultiFormatReader();
     $('#scanStatus').textContent = 'Arahkan kamera ke barcode...';
 
-    // Cari dulu semua kamera yang ada di HP
-    const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-    let deviceId = devices[0]?.deviceId;
-
-    // Utamain kamera BELAKANG
-    const backCam = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
-    if(backCam) deviceId = backCam.deviceId;
+    let deviceId = undefined;
+    try {
+      const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+      const backCam = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
+      if (backCam) {
+        deviceId = backCam.deviceId;
+      } else if (devices.length > 1) {
+        // Pada HP, kamera belakang biasanya urutan terakhir jika label kosong
+        deviceId = devices[devices.length - 1].deviceId;
+      }
+    } catch (_) {}
 
     await scanner.decodeFromVideoDevice(deviceId, 'video', (result) => {
       if(result) {
@@ -838,14 +868,30 @@ $('#barcodeFile').onchange=async e=>{
   const file=e.target.files[0];
   if(!file)return;
   try {
-    const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']});
-    const bmp=await createImageBitmap(file);
-    const codes=await detector.detect(bmp);
-    if(!codes.length) throw new Error('no code');
-    $('#search').value=codes[0].rawValue;
+    let rawValue = '';
+    if (typeof BarcodeDetector !== 'undefined') {
+      try {
+        const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']});
+        const bmp=await createImageBitmap(file);
+        const codes=await detector.detect(bmp);
+        if(codes.length) rawValue = codes[0].rawValue;
+      } catch (_) {}
+    }
+    if (!rawValue && window.ZXingBrowser) {
+      const reader = new ZXingBrowser.BrowserMultiFormatReader();
+      const url = URL.createObjectURL(file);
+      try {
+        const res = await reader.decodeFromImageUrl(url);
+        if (res) rawValue = res.getText();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+    if(!rawValue) throw new Error('no code');
+    $('#search').value=rawValue;
     navigate('search');
     loadProducts(true);
-    toast('Barcode ketemu!');
+    toast('Barcode ketemu: ' + rawValue);
   }catch(e){toast('Barcode tidak terbaca. Coba foto lebih jelas / dekat.')}
 };
 
@@ -900,6 +946,9 @@ $('#productForm').onsubmit=async e=>{
  const p=Object.fromEntries(f.entries());
  p.price=Number(p.price||0);
  p.stock=Number(p.stock||0);
+ if (e.target.dataset.editId) {
+  p.id = e.target.dataset.editId;
+ }
 
  try {
   await api('/api/products',{
@@ -1079,8 +1128,14 @@ $('#excel').onchange=async e=>{
    );
    if(key)result[field]=row[key];
   }
-  result.price=Number(result.price||0);
-  result.stock=Number(result.stock||0);
+   const cleanNum = v => {
+     if (typeof v === 'number') return v;
+     const s = String(v || '').replace(/[^0-9.-]/g, '');
+     const n = Number(s);
+     return Number.isFinite(n) ? n : 0;
+   };
+   result.price = cleanNum(result.price);
+   result.stock = Math.max(0, Math.floor(cleanNum(result.stock)));
   return result;
  }).filter(x=>x.sku&&x.name);
 
@@ -2052,97 +2107,6 @@ document.getElementById('inputCariFoto').addEventListener('change', async (e) =>
     e.target.value = '';
   }
 });
-  // === FINAL: TAMBAH FOTO DI POPUP - UDAH KOMPRES + LANGSUNG NEMPEL ===
-function kompresFoto(file){
-  return new Promise((resolve)=>{
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = ()=>{
-      const maxLebar = 800;
-      let w = img.width, h = img.height;
-      if(w > maxLebar){ h = Math.round(h * maxLebar / w); w = maxLebar; }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
-    };
-    img.src = url;
-  });
-}
-
-document.addEventListener('click', function(e){
-  const btn = e.target.closest('#btnTambahFotoDetail');
-  if(btn){ document.getElementById('inputTambahFotoDetail').click(); }
-});
-
-document.addEventListener('change', async function(e){
-  if(e.target.id !== 'inputTambahFotoDetail') return;
-  const file = e.target.files[0];
-  if(!file) return;
-  const dataUrl = await kompresFoto(file);
-  const sku = document.getElementById('detailSku')?.textContent?.trim() || window._skuDetailAktif;
-  const produk = (window.products || products || []).find(p => String(p.sku) === String(sku) || String(p.id) === String(sku));
-  if(!produk){ alert('Barang tidak ketemu, tutup popup lalu buka lagi'); return; }
-  produk.image_url = dataUrl;
-  try{
-    const simpan = JSON.parse(localStorage.getItem('fotoBarangManual') || '{}');
-    simpan[String(produk.sku || produk.id)] = dataUrl;
-    localStorage.setItem('fotoBarangManual', JSON.stringify(simpan));
-  }catch(err){ alert('Memori penuh, coba foto lain'); return; }
-  const galeri = document.getElementById('detailGaleri') || document.querySelector('.detail-foto');
-  if(galeri){ galeri.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:12px;object-fit:cover">`; }
-  render();
-  alert('Foto berhasil nempel (udah dikompres jadi kecil)');
-  e.target.value = '';
-});
-// === SATU-SATUNYA, JANGAN DOBEL ===
-if(!window.__fixHijau){
-window.__fixHijau = true;
-let inp = document.createElement('input');
-inp.type='file'; inp.accept='image/*'; inp.style.display='none';
-document.body.appendChild(inp);
-
-document.addEventListener('click', function(e){
-  document.querySelectorAll('button').forEach(b=>{
-    if(b.textContent.includes('Cari Barang Pakai Foto')) b.remove();
-  });
-  const btn = e.target.closest('button');
-  if(btn && btn.textContent.trim() === '+ Tambah Foto'){ inp.click(); }
-});
-
-inp.addEventListener('change', async function(){
-  const f = inp.files[0]; if(!f) return;
-  const img = new Image(); const url = URL.createObjectURL(f);
-  img.onload = ()=>{
-    const c = document.createElement('canvas');
-    const s = 800 / Math.max(img.width, img.height, 800);
-    c.width = img.width * Math.min(s,1); c.height = img.height * Math.min(s,1);
-    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    const data = c.toDataURL('image/jpeg',0.7);
-    URL.revokeObjectURL(url);
-
-    const sku = (document.body.innerText.match(/SKU:\s*(\S+)/)||[])[1] || '';
-    const list = window.products || [];
-    const p = list.find(x=>String(x.sku)===String(sku));
-    if(p) p.image_url = data;
-    try{
-      const o = JSON.parse(localStorage.getItem('fotoBarangManual')||'{}');
-      o[sku]=data; localStorage.setItem('fotoBarangManual', JSON.stringify(o));
-    }catch(e){}
-
-    document.querySelectorAll('div').forEach(d=>{
-      if(d.textContent.trim()==='Belum ada foto barang'){
-        d.innerHTML = '<img src="'+data+'" style="width:100%;border-radius:12px">';
-      }
-    });
-    if(typeof render==='function') render();
-    alert('Foto udah nempel!');
-    inp.value='';
-  };
-  img.src = url;
-});
-  }
 </script>
 </body>
 </html>
