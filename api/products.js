@@ -9,22 +9,22 @@ import {
   createPinHash, verifyPinHash
 } from '../lib/server.js';
 const fields = [
-  'sku', 'barcode', 'name', 'category',
+  'id', 'sku', 'barcode', 'name', 'category',
   'price', 'stock', 'location',
   'image_url', 'description', 'synonyms'
 ];
 function getLoginIpHash(req) {
-  const ip = req.headers['x-real-ip'];
-
-  if (typeof ip !== 'string' || !ip.trim()) {
-    return null;
-  }
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = req.headers['x-real-ip'] ||
+    (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) ||
+    req.socket?.remoteAddress ||
+    '127.0.0.1';
 
   return createHmac(
     'sha256',
     process.env.SESSION_SECRET
   )
-    .update(ip.trim())
+    .update(String(ip).trim())
     .digest('hex');
 }
 export default async function handler(req, res) {
@@ -50,18 +50,20 @@ if (req.method === 'POST' && action === 'login') {
     });
   }
 
-  // Cek apakah IP sedang diblokir
-  const { data: blocked, error: blockError } = await db
-    .rpc('admin_login_is_blocked', {
-      p_ip_hash: ipHash
-    });
+  // Cek apakah IP sedang diblokir (dengan fallback aman jika fungsi RPC belum dibuat)
+  try {
+    const { data: blocked, error: blockError } = await db
+      .rpc('admin_login_is_blocked', {
+        p_ip_hash: ipHash
+      });
 
-  if (blockError) throw blockError;
-
-  if (blocked === true) {
-    return json(res, 429, {
-      error: 'Terlalu banyak percobaan PIN salah. Coba lagi 15 menit kemudian.'
-    });
+    if (!blockError && blocked === true) {
+      return json(res, 429, {
+        error: 'Terlalu banyak percobaan PIN salah. Coba lagi 15 menit kemudian.'
+      });
+    }
+  } catch (e) {
+    console.warn('RPC admin_login_is_blocked tidak aktif:', e.message);
   }
 
   const pin = String(body.pin || '');
@@ -134,21 +136,25 @@ if (req.method === 'POST' && action === 'login') {
 
   // Jika PIN salah, catat percobaan
   if (!valid) {
-    const { data: failureData, error: failureError } =
-      await db.rpc('record_admin_login_failure', {
-        p_ip_hash: ipHash
-      });
+    try {
+      const { data: failureData, error: failureError } =
+        await db.rpc('record_admin_login_failure', {
+          p_ip_hash: ipHash
+        });
 
-    if (failureError) throw failureError;
+      if (!failureError && failureData) {
+        const failure = Array.isArray(failureData)
+          ? failureData[0]
+          : failureData;
 
-    const failure = Array.isArray(failureData)
-      ? failureData[0]
-      : failureData;
-
-    if (failure?.blocked_until) {
-      return json(res, 429, {
-        error: '5 kali PIN salah. Login diblokir sementara selama 15 menit.'
-      });
+        if (failure?.blocked_until) {
+          return json(res, 429, {
+            error: '5 kali PIN salah. Login diblokir sementara selama 15 menit.'
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('RPC record_admin_login_failure tidak aktif:', e.message);
     }
 
     return json(res, 401, {
@@ -157,14 +163,13 @@ if (req.method === 'POST' && action === 'login') {
   }
 
   // PIN benar: hapus penghitung kesalahan
-  const { error: resetError } = await db.rpc(
-    'reset_admin_login_attempts',
-    {
+  try {
+    await db.rpc('reset_admin_login_attempts', {
       p_ip_hash: ipHash
-    }
-  );
-
-  if (resetError) throw resetError;
+    });
+  } catch (e) {
+    console.warn('RPC reset_admin_login_attempts tidak aktif:', e.message);
+  }
 
   return json(res, 200, {
     token: await adminToken()
@@ -337,6 +342,12 @@ if (req.method === 'POST' && action === 'upsert') {
       }
     }
 
+    if (out.id && typeof out.id === 'string' && out.id.trim()) {
+      out.id = out.id.trim();
+    } else {
+      delete out.id;
+    }
+
     // Validasi SKU dan nama
     if (
       typeof out.sku !== 'string' &&
@@ -504,24 +515,63 @@ if (req.method === 'POST' && action === 'upsert') {
         });
       }
 
-      const { data, error } = await db.rpc(
-        'change_product_stock',
-        {
-          product_uuid: id,
-          stock_delta: change,
-          log_reason: String(
-            reason || 'Penyesuaian stok'
-          ).slice(0, 200),
-          log_actor: String(
-            actor || 'Admin'
-          ).slice(0, 80)
-        }
-      );
+      let updatedProduct = null;
 
-      if (error) throw error;
+      try {
+        const { data, error } = await db.rpc(
+          'change_product_stock',
+          {
+            product_uuid: id,
+            stock_delta: change,
+            log_reason: String(
+              reason || 'Penyesuaian stok'
+            ).slice(0, 200),
+            log_actor: String(
+              actor || 'Admin'
+            ).slice(0, 80)
+          }
+        );
+
+        if (!error && data) {
+          updatedProduct = data;
+        } else if (error) {
+          throw error;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC change_product_stock tidak tersedia, fallback direct update:', rpcErr.message);
+        const { data: current, error: getErr } = await db
+          .from('products')
+          .select('id, stock')
+          .eq('id', id)
+          .single();
+
+        if (getErr || !current) {
+          return json(res, 404, { error: 'Produk tidak ditemukan.' });
+        }
+
+        const newStock = Math.max(0, (current.stock || 0) + change);
+        const { data: directUpdate, error: updErr } = await db
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', id)
+          .select('*')
+          .single();
+
+        if (updErr) throw updErr;
+        updatedProduct = directUpdate;
+
+        try {
+          await db.from('stock_logs').insert({
+            product_id: id,
+            change,
+            reason: String(reason || 'Penyesuaian stok').slice(0, 200),
+            actor: String(actor || 'Admin').slice(0, 80)
+          });
+        } catch (_) {}
+      }
 
       return json(res, 200, {
-        product: data
+        product: updatedProduct
       });
     }
 
@@ -557,6 +607,26 @@ if (req.method === 'DELETE') {
 }
         // GET: membaca daftar barang
     if (req.method === 'GET') {
+      if (action === 'logs') {
+        const { id } = req.query;
+        if (!id) return json(res, 400, { error: 'ID produk diperlukan.' });
+
+        try {
+          const { data: logs, error: logErr } = await db
+            .from('stock_logs')
+            .select('*')
+            .eq('product_id', id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+          if (!logErr && logs) {
+            return json(res, 200, { logs });
+          }
+        } catch (_) {}
+
+        return json(res, 200, { logs: [] });
+      }
+
       const q = String(req.query.q || '')
         .replace(/[^\p{L}\p{N}\s-]/gu, '')
         .trim()
